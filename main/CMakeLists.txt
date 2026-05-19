@@ -1,0 +1,41 @@
+set(jiaofu_models
+    "../jiaofu/models/lgbm_cooked_weight_g.txt"
+    "../jiaofu/models/lgbm_cooked_energy_kcal.txt"
+    "../jiaofu/models/lgbm_cooked_protein_g.txt"
+    "../jiaofu/models/lgbm_cooked_fat_g.txt"
+    "../jiaofu/models/lgbm_cooked_carbohydrate_g.txt"
+    "../jiaofu/models/lgbm_cooked_sodium_mg.txt"
+    "../jiaofu/models/lgbm_cooked_cholesterol_mg.txt"
+    "../jiaofu/models/lgbm_cooked_vitamin_c_mg.txt"
+    "../jiaofu/models/lgbm_cooked_calcium_mg.txt"
+    "../jiaofu/models/lgbm_cooked_iron_mg.txt"
+    "../jiaofu/models/lgbm_cooked_potassium_mg.txt")
+
+idf_component_register(
+    SRCS "main.c"
+    "nutrition_app.cpp"
+    "jiaofu_inference.cpp"
+    "lvgl_demo_ui.c"
+    "HAL/esp_lcd_dsi/esp_lcd_dsi.c"
+    "HAL/display/ST7701S/st7701s.c"
+    "HAL/display/RM69A10/rm69a10.c"
+    "HAL/display/test_lcd/test_lcd.c"    
+    "HAL/lv_drv/lv_drv.c"  
+    "HAL/I2C/I2c_drv.c"                 
+    "HAL/PCA9536/pca9536.c"
+    INCLUDE_DIRS 
+    # "."
+    # "HAL/esp_lcd_dsi/"
+    # "HAL/display/"
+    # # "HAL/display/ST7701S/"
+    # # "HAL/display/RM69A10/"
+    # # "HAL/display/test_lcd/"
+    # "HAL/PCA9536/"
+    # "HAL/lv_drv/"
+    # "HAL/I2C/" 
+    "."
+    "HAL/"
+    REQUIRES "esp_lcd" 
+    PRIV_REQUIRES "driver"
+    EMBED_FILES ${jiaofu_models}
+    )

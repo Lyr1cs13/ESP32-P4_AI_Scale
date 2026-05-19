@@ -1,0 +1,44 @@
+{
+  "C_Cpp.intelliSenseEngine": "default",
+  "idf.openOcdConfigs": [
+    "interface/ftdi/esp32_devkitj_v1.cfg",
+    "target/esp32.cfg"
+  ],
+  "idf.port": "/dev/tty.wchusbserial5AAF2871921",
+  "idf.currentSetup": "/Users/kaka/.espressif/v5.5/esp-idf",
+  "idf.customExtraVars": {
+    "IDF_TARGET": "esp32p4"
+  },
+  "files.associations": {
+    "*.cpp": "cpp",
+    "freertos.h": "c",
+    "task.h": "c",
+    "esp_timer.h": "c",
+    "esp_lcd_panel_ops.h": "c",
+    "esp_lcd_mipi_dsi.h": "c",
+    "esp_ldo_regulator.h": "c",
+    "cstdint": "c",
+    "esp_lcd_dsi.h": "c",
+    "st7701s.h": "c",
+    "lv_demos.h": "c",
+    "lv_demo_stress.h": "c",
+    "sdkconfig.h": "c",
+    "param.h": "c",
+    "test_lcd.h": "c",
+    "lv_drv.h": "c",
+    "config.h": "c",
+    "touch.h": "c",
+    "i2c_drv.h": "c",
+    "pca9536.h": "c",
+    "esp_log.h": "c",
+    "esp_lcd_touch_cst816s.h": "c",
+    "rm69a10.h": "c",
+    "jd9365.h": "c"
+  },
+  "idf.flashType": "UART",
+  "idf.espIdfPathWin": "D:/Espressif/frameworks/esp-idf-v5.5.4/",
+  "idf.toolsPathWin": "D:\\Espressif",
+  "idf.pythonInstallPath": "D:\\Espressif\\tools\\idf-python\\3.11.2\\python.exe",
+  "idf.portWin": "COM5",
+
+}

@@ -1,0 +1,54 @@
+menu "DSI_DEMO Configuration"
+    config EXAMPLE_USE_DMA2D_COPY_FRAME
+        bool "Use DMA2D to copy draw buffer to frame buffer"
+        default y
+        help
+            Enable this option, DMA2D will be used to copy the LVGL draw buffer to the target frame buffer.
+            This can save some CPU time and improve the performance.
+
+    config EXAMPLE_MONITOR_REFRESH_BY_GPIO
+        bool "Monitor Refresh Rate by GPIO"
+        default y
+        help
+            Enable this option, you can visualize the refresh rate by attaching a logic analyzer to a specific GPIO.
+            The GPIO will output a square wave with the frequency equals to half of the refresh rate.
+
+    config DISPLAY_READ_ID
+    bool "Enable read id of LCD"
+    default n 
+    help
+        Enable read id of LCD.
+
+    choice   
+        prompt "Select MIPI LCD color format"
+        default DSI_LCD_COLOR_FORMAT_565
+        help
+            Select LCD color format.
+
+        config DSI_LCD_COLOR_FORMAT_565
+            bool "16b RGB565"
+        config DSI_LCD_COLOR_FORMAT_888
+            bool "24b RGB888"
+    endchoice      
+
+
+
+    choice
+        prompt "Select MIPI LCD model"
+        default INCH_2_8_LCD_ST7701S_480x640
+        help
+            Select LCD controller model.
+
+        config INCH_2_8_LCD_ST7701S_480x640
+            bool "2.8 inch LCD"
+        config INCH_2_4_LCD_ST7701S_480x640
+            bool "2.4 inch LCD"
+        config INCH_4_0_LCD_RM69A10_568_1232
+            bool "4.0 inch AMOLED"
+        config INCH_10_0_LCD_JD9365_800_1280
+            bool "10 inch lcd WX101BH020I-40Z"
+    endchoice
+
+
+
+endmenu
