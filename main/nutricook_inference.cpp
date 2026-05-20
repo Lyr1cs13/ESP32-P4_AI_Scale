@@ -1,8 +1,8 @@
-#include "jiaofu_inference.hpp"
+﻿#include "nutricook_inference.hpp"
 
 #include "esp_log.h"
 #include "esp_timer.h"
-#include "jiaofu_raw_table.hpp"
+#include "nutricook_raw_table.hpp"
 
 #include <math.h>
 #include <stdint.h>
@@ -10,7 +10,7 @@
 
 namespace {
 
-constexpr const char *TAG = "jiaofu_infer";
+constexpr const char *TAG = "nutricook_infer";
 constexpr uint32_t kBinaryMagic = 0x3142464a; // JFB1, little endian
 
 struct BinaryModelHeader {
@@ -33,10 +33,10 @@ struct BinaryModelView {
     BinaryTreeView trees[512];
 };
 
-extern const uint8_t jiaofu_models_bin_start[] asm("_binary_jiaofu_models_bin_start");
-extern const uint8_t jiaofu_models_bin_end[] asm("_binary_jiaofu_models_bin_end");
+extern const uint8_t nutricook_models_bin_start[] asm("_binary_nutricook_models_bin_start");
+extern const uint8_t nutricook_models_bin_end[] asm("_binary_nutricook_models_bin_end");
 
-BinaryModelView g_models[jiaofu::kOutputCount] = {};
+BinaryModelView g_models[nutricook::kOutputCount] = {};
 bool g_models_mapped = false;
 
 const uint8_t *align_ptr(const uint8_t *p, uintptr_t boundary)
@@ -59,9 +59,9 @@ uint32_t read_u32(const uint8_t *p)
     return value;
 }
 
-bool is_fruit(jiaofu::Ingredient ingredient)
+bool is_fruit(nutricook::Ingredient ingredient)
 {
-    using I = jiaofu::Ingredient;
+    using I = nutricook::Ingredient;
     switch (ingredient) {
     case I::Apple:
     case I::Banana:
@@ -80,9 +80,9 @@ bool is_fruit(jiaofu::Ingredient ingredient)
     }
 }
 
-bool is_meat(jiaofu::Ingredient ingredient)
+bool is_meat(nutricook::Ingredient ingredient)
 {
-    using I = jiaofu::Ingredient;
+    using I = nutricook::Ingredient;
     switch (ingredient) {
     case I::Beef:
     case I::Chicken:
@@ -111,7 +111,7 @@ float float_value(const float *values, uint16_t index)
 
 bool map_one_model(uint32_t model_index, const uint8_t *base, const uint8_t *end, const BinaryModelHeader &header)
 {
-    if (model_index >= jiaofu::kOutputCount || base + header.offset + sizeof(uint32_t) > end) {
+    if (model_index >= nutricook::kOutputCount || base + header.offset + sizeof(uint32_t) > end) {
         return false;
     }
 
@@ -170,15 +170,15 @@ bool ensure_models_mapped()
     }
 
     const int64_t start_us = esp_timer_get_time();
-    const uint8_t *base = jiaofu_models_bin_start;
-    const uint8_t *end = jiaofu_models_bin_end;
+    const uint8_t *base = nutricook_models_bin_start;
+    const uint8_t *end = nutricook_models_bin_end;
     if (end <= base + 8 || read_u32(base) != kBinaryMagic) {
         ESP_LOGE(TAG, "bad packed model blob");
         return false;
     }
 
     const uint32_t model_count = read_u32(base + 4);
-    if (model_count != jiaofu::kOutputCount) {
+    if (model_count != nutricook::kOutputCount) {
         ESP_LOGE(TAG, "unexpected model count: %lu", static_cast<unsigned long>(model_count));
         return false;
     }
@@ -198,7 +198,7 @@ bool ensure_models_mapped()
     return true;
 }
 
-float eval_tree(const BinaryTreeView &tree, const float features[jiaofu::kFeatureCount])
+float eval_tree(const BinaryTreeView &tree, const float features[nutricook::kFeatureCount])
 {
     int node = 0;
     while (node >= 0 && node < static_cast<int>(tree.internal_count)) {
@@ -215,7 +215,7 @@ float eval_tree(const BinaryTreeView &tree, const float features[jiaofu::kFeatur
     return NAN;
 }
 
-float predict_one_model(size_t model_index, const float features[jiaofu::kFeatureCount])
+float predict_one_model(size_t model_index, const float features[nutricook::kFeatureCount])
 {
     const BinaryModelView &model = g_models[model_index];
     float sum = 0.0f;
@@ -228,7 +228,7 @@ float predict_one_model(size_t model_index, const float features[jiaofu::kFeatur
     return sum;
 }
 
-void fill_prediction(const float outputs[jiaofu::kOutputCount], jiaofu::Prediction *prediction)
+void fill_prediction(const float outputs[nutricook::kOutputCount], nutricook::Prediction *prediction)
 {
     *prediction = {
         outputs[0],
@@ -245,24 +245,24 @@ void fill_prediction(const float outputs[jiaofu::kOutputCount], jiaofu::Predicti
     };
 }
 
-bool predict_raw(const jiaofu::IngredientWeight *items, size_t item_count, jiaofu::Prediction *prediction)
+bool predict_raw(const nutricook::IngredientWeight *items, size_t item_count, nutricook::Prediction *prediction)
 {
-    if (items == nullptr || prediction == nullptr || item_count == 0 || item_count > jiaofu::kMaxIngredientsPerDish) {
+    if (items == nullptr || prediction == nullptr || item_count == 0 || item_count > nutricook::kMaxIngredientsPerDish) {
         return false;
     }
 
-    float outputs[jiaofu::kOutputCount] = {};
+    float outputs[nutricook::kOutputCount] = {};
     for (size_t i = 0; i < item_count; ++i) {
         const int ingredient_index = static_cast<int>(items[i].ingredient);
         const float weight = items[i].raw_weight_g;
-        if (ingredient_index < 0 || ingredient_index >= static_cast<int>(jiaofu::Ingredient::Count) || weight < 0.0f) {
+        if (ingredient_index < 0 || ingredient_index >= static_cast<int>(nutricook::Ingredient::Count) || weight < 0.0f) {
             return false;
         }
 
         const float ratio = weight / 100.0f;
         outputs[0] += weight;
         for (size_t field = 0; field < 10; ++field) {
-            outputs[field + 1] += jiaofu::kRawNutritionPer100g[ingredient_index][field] * ratio;
+            outputs[field + 1] += nutricook::kRawNutritionPer100g[ingredient_index][field] * ratio;
         }
     }
 
@@ -273,7 +273,7 @@ bool predict_raw(const jiaofu::IngredientWeight *items, size_t item_count, jiaof
 
 } // namespace
 
-namespace jiaofu {
+namespace nutricook {
 
 bool build_features(const IngredientWeight *items,
                     size_t item_count,
@@ -367,4 +367,6 @@ const char *cooking_method_name(CookingMethod method)
     return index >= 0 && index < 7 ? kNames[index] : "unknown";
 }
 
-} // namespace jiaofu
+} // namespace nutricook
+
+

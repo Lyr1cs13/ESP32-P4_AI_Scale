@@ -1,4 +1,4 @@
-#include "jiaofu_inference.hpp"
+﻿#include "nutricook_inference.hpp"
 
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -19,7 +19,7 @@ constexpr uint32_t kScreenW = 480;
 constexpr uint32_t kScreenH = 640;
 
 struct IngredientState {
-    jiaofu::IngredientWeight items[jiaofu::kMaxIngredientsPerDish];
+    nutricook::IngredientWeight items[nutricook::kMaxIngredientsPerDish];
     size_t count;
 };
 
@@ -38,32 +38,32 @@ enum class InferenceState {
 
 struct CloudNutritionRecord {
     IngredientState input;
-    jiaofu::CookingMethod method;
-    jiaofu::Prediction prediction;
+    nutricook::CookingMethod method;
+    nutricook::Prediction prediction;
     bool valid;
 };
 
 struct MethodOption {
     const char *name_cn;
     const char *subtitle_cn;
-    jiaofu::CookingMethod method;
+    nutricook::CookingMethod method;
     lv_obj_t *btn;
 };
 
 MethodOption s_methods[] = {
-    {"不烹饪", "按生食/原始营养估算", jiaofu::CookingMethod::Raw, nullptr},
-    {"水煮", "清淡，含水烹调", jiaofu::CookingMethod::Boil, nullptr},
-    {"红烧", "酱汁炖煮", jiaofu::CookingMethod::Braise, nullptr},
-    {"油炸", "高油高温", jiaofu::CookingMethod::DeepFry, nullptr},
-    {"煎制", "平底锅加热", jiaofu::CookingMethod::PanFry, nullptr},
-    {"烤制", "干热烘烤", jiaofu::CookingMethod::Roast, nullptr},
-    {"清蒸", "低油蒸汽", jiaofu::CookingMethod::Steam, nullptr},
-    {"炒制", "快速翻炒", jiaofu::CookingMethod::StirFry, nullptr},
+    {"不烹饪", "按生食/原始营养估算", nutricook::CookingMethod::Raw, nullptr},
+    {"水煮", "清淡，含水烹调", nutricook::CookingMethod::Boil, nullptr},
+    {"红烧", "酱汁炖煮", nutricook::CookingMethod::Braise, nullptr},
+    {"油炸", "高油高温", nutricook::CookingMethod::DeepFry, nullptr},
+    {"煎制", "平底锅加热", nutricook::CookingMethod::PanFry, nullptr},
+    {"烤制", "干热烘烤", nutricook::CookingMethod::Roast, nullptr},
+    {"清蒸", "低油蒸汽", nutricook::CookingMethod::Steam, nullptr},
+    {"炒制", "快速翻炒", nutricook::CookingMethod::StirFry, nullptr},
 };
 
 SemaphoreHandle_t s_mutex = nullptr;
 IngredientState s_ingredients = {};
-jiaofu::CookingMethod s_selected_method = jiaofu::CookingMethod::Raw;
+nutricook::CookingMethod s_selected_method = nutricook::CookingMethod::Raw;
 InferenceState s_inference_state = InferenceState::Idle;
 CloudNutritionRecord s_cloud_record = {};
 bool s_prediction_dirty = true;
@@ -126,16 +126,16 @@ void unlock_state()
 void set_default_ingredients()
 {
     s_ingredients.count = 3;
-    s_ingredients.items[0] = {jiaofu::Ingredient::Chicken, 150.0f};
-    s_ingredients.items[1] = {jiaofu::Ingredient::Potato, 120.0f};
-    s_ingredients.items[2] = {jiaofu::Ingredient::Carrot, 60.0f};
+    s_ingredients.items[0] = {nutricook::Ingredient::Chicken, 150.0f};
+    s_ingredients.items[1] = {nutricook::Ingredient::Potato, 120.0f};
+    s_ingredients.items[2] = {nutricook::Ingredient::Carrot, 60.0f};
 }
 
-bool ingredient_from_name(const char *name, jiaofu::Ingredient *ingredient)
+bool ingredient_from_name(const char *name, nutricook::Ingredient *ingredient)
 {
-    for (int i = 0; i < static_cast<int>(jiaofu::Ingredient::Count); ++i) {
-        const auto candidate = static_cast<jiaofu::Ingredient>(i);
-        if (strcmp(name, jiaofu::ingredient_name(candidate)) == 0) {
+    for (int i = 0; i < static_cast<int>(nutricook::Ingredient::Count); ++i) {
+        const auto candidate = static_cast<nutricook::Ingredient>(i);
+        if (strcmp(name, nutricook::ingredient_name(candidate)) == 0) {
             *ingredient = candidate;
             return true;
         }
@@ -176,13 +176,13 @@ bool parse_ingredient_line(char *line, IngredientState *out)
         }
 
         normalize_token(part);
-        jiaofu::Ingredient ingredient = jiaofu::Ingredient::Apple;
+        nutricook::Ingredient ingredient = nutricook::Ingredient::Apple;
         if (!ingredient_from_name(part, &ingredient)) {
             return false;
         }
 
         const float weight = strtof(sep, nullptr);
-        if (weight <= 0.0f || parsed.count >= jiaofu::kMaxIngredientsPerDish) {
+        if (weight <= 0.0f || parsed.count >= nutricook::kMaxIngredientsPerDish) {
             return false;
         }
         parsed.items[parsed.count++] = {ingredient, weight};
@@ -213,7 +213,7 @@ void format_ingredients(const IngredientState &state, char *buffer, size_t buffe
                                      buffer_size - used,
                                      "%s%s %.0fg",
                                      i == 0 ? "" : ", ",
-                                     jiaofu::ingredient_name(state.items[i].ingredient),
+                                     nutricook::ingredient_name(state.items[i].ingredient),
                                      static_cast<double>(state.items[i].raw_weight_g));
         if (written < 0) {
             break;
@@ -273,7 +273,7 @@ void style_plain(lv_obj_t *obj)
     lv_obj_clear_flag(obj, LV_OBJ_FLAG_SCROLLABLE);
 }
 
-const char *method_name_cn(jiaofu::CookingMethod method)
+const char *method_name_cn(nutricook::CookingMethod method)
 {
     for (const auto &option : s_methods) {
         if (option.method == method) {
@@ -357,14 +357,14 @@ void start_inference_if_needed()
         xTaskCreate(
             [](void *) {
                 IngredientState input = {};
-                jiaofu::CookingMethod method = jiaofu::CookingMethod::Raw;
+                nutricook::CookingMethod method = nutricook::CookingMethod::Raw;
                 lock_state();
                 input = s_ingredients;
                 method = s_selected_method;
                 unlock_state();
 
-                jiaofu::Prediction prediction = {};
-                const bool ok = jiaofu::predict(input.items, input.count, method, &prediction);
+                nutricook::Prediction prediction = {};
+                const bool ok = nutricook::predict(input.items, input.count, method, &prediction);
 
                 lock_state();
                 if (ok) {
@@ -692,7 +692,7 @@ void update_scale_page(const IngredientState &ingredients)
                  sizeof(one),
                  "%u. %s   %.0f g\n",
                  static_cast<unsigned>(i + 1),
-                 jiaofu::ingredient_name(ingredients.items[i].ingredient),
+                 nutricook::ingredient_name(ingredients.items[i].ingredient),
                  static_cast<double>(ingredients.items[i].raw_weight_g));
         strncat(text, one, sizeof(text) - strlen(text) - 1);
     }
@@ -768,7 +768,7 @@ void ui_timer_cb(lv_timer_t *)
     InferenceState state = InferenceState::Idle;
     CloudNutritionRecord record = {};
     bool dirty = false;
-    jiaofu::CookingMethod method = jiaofu::CookingMethod::Raw;
+    nutricook::CookingMethod method = nutricook::CookingMethod::Raw;
 
     lock_state();
     ingredients = s_ingredients;
@@ -824,7 +824,7 @@ extern "C" void nutrition_lvgl_ui(lv_display_t *disp)
     xTaskCreate(serial_input_task, "nutrition_serial", 4096, nullptr, 4, nullptr);
 }
 
-extern "C" bool nutrition_copy_latest_result(float outputs[jiaofu::kOutputCount])
+extern "C" bool nutrition_copy_latest_result(float outputs[nutricook::kOutputCount])
 {
     if (outputs == nullptr) {
         return false;
@@ -848,3 +848,5 @@ extern "C" bool nutrition_copy_latest_result(float outputs[jiaofu::kOutputCount]
     unlock_state();
     return valid;
 }
+
+

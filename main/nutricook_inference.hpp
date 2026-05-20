@@ -1,8 +1,8 @@
-#pragma once
+﻿#pragma once
 
 #include <stddef.h>
 
-namespace jiaofu {
+namespace nutricook {
 
 static constexpr size_t kMaxIngredientsPerDish = 4;
 static constexpr size_t kFeatureCount = 41;
@@ -83,4 +83,6 @@ bool predict(const IngredientWeight *items, size_t item_count, CookingMethod met
 const char *ingredient_name(Ingredient ingredient);
 const char *cooking_method_name(CookingMethod method);
 
-} // namespace jiaofu
+} // namespace nutricook
+
+

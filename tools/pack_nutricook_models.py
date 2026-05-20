@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 import struct
 import sys
 from pathlib import Path
@@ -101,7 +101,7 @@ def parse_model(path: Path):
 
 def main() -> int:
     if len(sys.argv) != 3:
-        print("usage: pack_jiaofu_models.py <model-dir> <output-bin>", file=sys.stderr)
+        print("usage: pack_nutricook_models.py <model-dir> <output-bin>", file=sys.stderr)
         return 2
 
     model_dir = Path(sys.argv[1])
@@ -142,3 +142,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+

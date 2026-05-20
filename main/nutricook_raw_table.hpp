@@ -1,6 +1,6 @@
-#pragma once
+﻿#pragma once
 
-namespace jiaofu {
+namespace nutricook {
 
 static constexpr float kRawNutritionPer100g[31][10] = {
     {54.7f, 0.2f, 0.2f, 13.5f, 1.6f, 0.0f, 4.0f, 4.0f, 0.6f, 119.0f}, // apple
@@ -36,4 +36,6 @@ static constexpr float kRawNutritionPer100g[31][10] = {
     {26.3f, 0.6f, 0.1f, 5.8f, 3.2f, 0.0f, 6.0f, 8.0f, 0.3f, 87.0f}, // watermelon
 };
 
-} // namespace jiaofu
+} // namespace nutricook
+
+

@@ -1,6 +1,6 @@
-# 烹饪营养预测模型 — ESP32 部署交付文档
+﻿# NutriCook 烹饪营养预测模型 — ESP32 部署文档
 
-> 版本: 1.0 | 日期: 2026-04-28 | 模型目录: Stephen
+> 版本: 1.0 | 日期: 2026-04-28 | 模型目录: NutriCook
 
 ---
 
@@ -19,7 +19,7 @@
 ## 2. 文件清单
 
 ```
-jiaofu/
+NutriCook/
 ├── models/                          # 11个 LightGBM 模型文件
 │   ├── lgbm_cooked_weight_g.txt
 │   ├── lgbm_cooked_energy_kcal.txt
@@ -269,3 +269,5 @@ ESP32-P4: 768KB SRAM + 外部 PSRAM, **内存充足**。
 3. **final.json 是参考数据库**: 包含31种食材每100g的完整营养数据,可用于UI显示或额外计算,推理时不直接使用
 4. **模型不依赖final.json**: 模型输入是41维特征向量,不读取final.json
 5. **能量不要直接用模型输出**: 必须用Atwater公式重算,否则可能出现物理不一致
+
+

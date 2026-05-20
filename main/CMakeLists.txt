@@ -1,22 +1,22 @@
-set(jiaofu_models
-    "../jiaofu/models/lgbm_cooked_weight_g.txt"
-    "../jiaofu/models/lgbm_cooked_energy_kcal.txt"
-    "../jiaofu/models/lgbm_cooked_protein_g.txt"
-    "../jiaofu/models/lgbm_cooked_fat_g.txt"
-    "../jiaofu/models/lgbm_cooked_carbohydrate_g.txt"
-    "../jiaofu/models/lgbm_cooked_sodium_mg.txt"
-    "../jiaofu/models/lgbm_cooked_cholesterol_mg.txt"
-    "../jiaofu/models/lgbm_cooked_vitamin_c_mg.txt"
-    "../jiaofu/models/lgbm_cooked_calcium_mg.txt"
-    "../jiaofu/models/lgbm_cooked_iron_mg.txt"
-    "../jiaofu/models/lgbm_cooked_potassium_mg.txt")
+﻿set(nutricook_models
+    "../nutricook/models/lgbm_cooked_weight_g.txt"
+    "../nutricook/models/lgbm_cooked_energy_kcal.txt"
+    "../nutricook/models/lgbm_cooked_protein_g.txt"
+    "../nutricook/models/lgbm_cooked_fat_g.txt"
+    "../nutricook/models/lgbm_cooked_carbohydrate_g.txt"
+    "../nutricook/models/lgbm_cooked_sodium_mg.txt"
+    "../nutricook/models/lgbm_cooked_cholesterol_mg.txt"
+    "../nutricook/models/lgbm_cooked_vitamin_c_mg.txt"
+    "../nutricook/models/lgbm_cooked_calcium_mg.txt"
+    "../nutricook/models/lgbm_cooked_iron_mg.txt"
+    "../nutricook/models/lgbm_cooked_potassium_mg.txt")
 
-set(packed_jiaofu_model "${CMAKE_CURRENT_BINARY_DIR}/jiaofu_models.bin")
+set(packed_nutricook_model "${CMAKE_CURRENT_BINARY_DIR}/nutricook_models.bin")
 
 idf_component_register(
     SRCS "main.c"
     "nutrition_app.cpp"
-    "jiaofu_inference.cpp"
+    "nutricook_inference.cpp"
     "lvgl_demo_ui.c"
     "HAL/esp_lcd_dsi/esp_lcd_dsi.c"
     "HAL/display/ST7701S/st7701s.c"
@@ -43,13 +43,15 @@ idf_component_register(
 
 if(NOT CMAKE_SCRIPT_MODE_FILE)
     add_custom_command(
-        OUTPUT "${packed_jiaofu_model}"
-        COMMAND ${PYTHON} "${CMAKE_CURRENT_LIST_DIR}/../tools/pack_jiaofu_models.py"
-                "${CMAKE_CURRENT_LIST_DIR}/../jiaofu/models"
-                "${packed_jiaofu_model}"
-        DEPENDS ${jiaofu_models} "${CMAKE_CURRENT_LIST_DIR}/../tools/pack_jiaofu_models.py"
+        OUTPUT "${packed_nutricook_model}"
+        COMMAND ${PYTHON} "${CMAKE_CURRENT_LIST_DIR}/../tools/pack_nutricook_models.py"
+                "${CMAKE_CURRENT_LIST_DIR}/../nutricook/models"
+                "${packed_nutricook_model}"
+        DEPENDS ${nutricook_models} "${CMAKE_CURRENT_LIST_DIR}/../tools/pack_nutricook_models.py"
         VERBATIM)
-    add_custom_target(pack_jiaofu_models DEPENDS "${packed_jiaofu_model}")
-    add_dependencies(${COMPONENT_LIB} pack_jiaofu_models)
-    target_add_binary_data(${COMPONENT_LIB} "${packed_jiaofu_model}" BINARY)
+    add_custom_target(pack_nutricook_models DEPENDS "${packed_nutricook_model}")
+    add_dependencies(${COMPONENT_LIB} pack_nutricook_models)
+    target_add_binary_data(${COMPONENT_LIB} "${packed_nutricook_model}" BINARY)
 endif()
+
+
