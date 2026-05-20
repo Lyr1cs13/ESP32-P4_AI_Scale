@@ -44,6 +44,7 @@ enum class Ingredient : int {
 };
 
 enum class CookingMethod : int {
+    Raw = -1,
     Boil = 0,
     Braise,
     DeepFry,

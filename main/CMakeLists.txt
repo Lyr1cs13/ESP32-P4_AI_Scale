@@ -11,6 +11,8 @@ set(jiaofu_models
     "../jiaofu/models/lgbm_cooked_iron_mg.txt"
     "../jiaofu/models/lgbm_cooked_potassium_mg.txt")
 
+set(packed_jiaofu_model "${CMAKE_CURRENT_BINARY_DIR}/jiaofu_models.bin")
+
 idf_component_register(
     SRCS "main.c"
     "nutrition_app.cpp"
@@ -37,5 +39,17 @@ idf_component_register(
     "HAL/"
     REQUIRES "esp_lcd" 
     PRIV_REQUIRES "driver"
-    EMBED_FILES ${jiaofu_models}
     )
+
+if(NOT CMAKE_SCRIPT_MODE_FILE)
+    add_custom_command(
+        OUTPUT "${packed_jiaofu_model}"
+        COMMAND ${PYTHON} "${CMAKE_CURRENT_LIST_DIR}/../tools/pack_jiaofu_models.py"
+                "${CMAKE_CURRENT_LIST_DIR}/../jiaofu/models"
+                "${packed_jiaofu_model}"
+        DEPENDS ${jiaofu_models} "${CMAKE_CURRENT_LIST_DIR}/../tools/pack_jiaofu_models.py"
+        VERBATIM)
+    add_custom_target(pack_jiaofu_models DEPENDS "${packed_jiaofu_model}")
+    add_dependencies(${COMPONENT_LIB} pack_jiaofu_models)
+    target_add_binary_data(${COMPONENT_LIB} "${packed_jiaofu_model}" BINARY)
+endif()
