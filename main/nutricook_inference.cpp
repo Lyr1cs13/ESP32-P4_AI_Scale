@@ -39,10 +39,9 @@ extern const uint8_t nutricook_models_bin_end[] asm("_binary_nutricook_models_bi
 BinaryModelView g_models[nutricook::kOutputCount] = {};
 bool g_models_mapped = false;
 
-const uint8_t *align_ptr(const uint8_t *p, uintptr_t boundary)
+size_t align_offset(size_t offset, size_t boundary)
 {
-    const uintptr_t value = reinterpret_cast<uintptr_t>(p);
-    return reinterpret_cast<const uint8_t *>((value + boundary - 1) & ~(boundary - 1));
+    return (offset + boundary - 1) & ~(boundary - 1);
 }
 
 uint16_t read_u16(const uint8_t *p)
@@ -111,14 +110,21 @@ float float_value(const float *values, uint16_t index)
 
 bool map_one_model(uint32_t model_index, const uint8_t *base, const uint8_t *end, const BinaryModelHeader &header)
 {
-    if (model_index >= nutricook::kOutputCount || base + header.offset + sizeof(uint32_t) > end) {
+    const size_t blob_size = static_cast<size_t>(end - base);
+    if (model_index >= nutricook::kOutputCount || header.offset > blob_size ||
+        header.offset + sizeof(uint32_t) > blob_size) {
         return false;
     }
 
-    const uint8_t *p = base + header.offset;
-    const uint32_t tree_count = read_u32(p);
-    p += sizeof(uint32_t);
+    size_t cursor = header.offset;
+    const uint32_t tree_count = read_u32(base + cursor);
+    cursor += sizeof(uint32_t);
     if (tree_count != header.tree_count || tree_count > 512) {
+        ESP_LOGE(TAG,
+                 "bad tree count for model %lu: header=%lu body=%lu",
+                 static_cast<unsigned long>(model_index),
+                 static_cast<unsigned long>(header.tree_count),
+                 static_cast<unsigned long>(tree_count));
         return false;
     }
 
@@ -126,38 +132,49 @@ bool map_one_model(uint32_t model_index, const uint8_t *base, const uint8_t *end
     view.tree_count = tree_count;
 
     for (uint32_t i = 0; i < tree_count; ++i) {
-        p = align_ptr(p, 4);
-        if (p + 4 > end) {
+        cursor = align_offset(cursor, 4);
+        if (cursor + 4 > blob_size) {
             return false;
         }
 
         BinaryTreeView &tree = view.trees[i];
-        tree.internal_count = read_u16(p);
-        tree.leaf_count = read_u16(p + 2);
-        p += 4;
+        tree.internal_count = read_u16(base + cursor);
+        tree.leaf_count = read_u16(base + cursor + 2);
+        cursor += 4;
 
         if (tree.internal_count > 255 || tree.leaf_count > 256) {
+            ESP_LOGE(TAG,
+                     "bad tree shape for model %lu tree %lu: internal=%u leaf=%u",
+                     static_cast<unsigned long>(model_index),
+                     static_cast<unsigned long>(i),
+                     static_cast<unsigned>(tree.internal_count),
+                     static_cast<unsigned>(tree.leaf_count));
             return false;
         }
 
-        tree.split_feature = p;
-        p += tree.internal_count;
-        p = align_ptr(p, 2);
-
-        tree.left_child = reinterpret_cast<const int16_t *>(p);
-        p += sizeof(int16_t) * tree.internal_count;
-        tree.right_child = reinterpret_cast<const int16_t *>(p);
-        p += sizeof(int16_t) * tree.internal_count;
-        p = align_ptr(p, 4);
-
-        tree.threshold = reinterpret_cast<const float *>(p);
-        p += sizeof(float) * tree.internal_count;
-        tree.leaf_value = reinterpret_cast<const float *>(p);
-        p += sizeof(float) * tree.leaf_count;
-
-        if (p > end) {
+        if (cursor + tree.internal_count > blob_size) {
             return false;
         }
+        tree.split_feature = base + cursor;
+        cursor += tree.internal_count;
+        cursor = align_offset(cursor, 2);
+
+        if (cursor + sizeof(int16_t) * tree.internal_count * 2 > blob_size) {
+            return false;
+        }
+        tree.left_child = reinterpret_cast<const int16_t *>(base + cursor);
+        cursor += sizeof(int16_t) * tree.internal_count;
+        tree.right_child = reinterpret_cast<const int16_t *>(base + cursor);
+        cursor += sizeof(int16_t) * tree.internal_count;
+        cursor = align_offset(cursor, 4);
+
+        if (cursor + sizeof(float) * (tree.internal_count + tree.leaf_count) > blob_size) {
+            return false;
+        }
+        tree.threshold = reinterpret_cast<const float *>(base + cursor);
+        cursor += sizeof(float) * tree.internal_count;
+        tree.leaf_value = reinterpret_cast<const float *>(base + cursor);
+        cursor += sizeof(float) * tree.leaf_count;
     }
 
     return true;

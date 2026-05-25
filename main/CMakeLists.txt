@@ -17,6 +17,7 @@ idf_component_register(
     SRCS "main.c"
     "nutrition_app.cpp"
     "nutricook_inference.cpp"
+    "nutricook_ui_font_16.c"
     "lvgl_demo_ui.c"
     "HAL/esp_lcd_dsi/esp_lcd_dsi.c"
     "HAL/display/ST7701S/st7701s.c"

@@ -11,6 +11,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+LV_FONT_DECLARE(nutricook_ui_font_16);
+
 namespace {
 
 constexpr const char *TAG = "nutrition_ui";
@@ -101,7 +103,7 @@ const lv_color_t kRose = lv_color_hex(0xE11D48);
 
 const lv_font_t *font_cn()
 {
-    return &lv_font_simsun_16_cjk;
+    return &nutricook_ui_font_16;
 }
 
 const lv_font_t *font_num_big()
@@ -420,9 +422,9 @@ void gesture_event_cb(lv_event_t *e)
         return;
     }
     const lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_active());
-    if (dir == LV_DIR_RIGHT) {
+    if (dir == LV_DIR_LEFT) {
         go_next_page();
-    } else if (dir == LV_DIR_LEFT) {
+    } else if (dir == LV_DIR_RIGHT) {
         go_prev_page();
     }
 }
