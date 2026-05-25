@@ -75,9 +75,7 @@ lv_obj_t *s_pages[3] = {};
 lv_obj_t *s_dots[3] = {};
 lv_obj_t *s_food_list = nullptr;
 lv_obj_t *s_total_weight_label = nullptr;
-lv_obj_t *s_scale_status_label = nullptr;
 lv_obj_t *s_method_status_label = nullptr;
-lv_obj_t *s_result_status_label = nullptr;
 lv_obj_t *s_result_title = nullptr;
 lv_obj_t *s_energy_label = nullptr;
 lv_obj_t *s_weight_label = nullptr;
@@ -85,21 +83,20 @@ lv_obj_t *s_macro_center_label = nullptr;
 lv_obj_t *s_protein_value_label = nullptr;
 lv_obj_t *s_fat_value_label = nullptr;
 lv_obj_t *s_carb_value_label = nullptr;
-lv_obj_t *s_micro_label = nullptr;
 lv_obj_t *s_arc_protein = nullptr;
 lv_obj_t *s_arc_fat = nullptr;
 lv_obj_t *s_arc_carb = nullptr;
 
-const lv_color_t kBg = lv_color_hex(0xF5F7FB);
+const lv_color_t kBg = lv_color_hex(0xF7F8FA);
 const lv_color_t kPanel = lv_color_hex(0xFFFFFF);
-const lv_color_t kPanelSoft = lv_color_hex(0xEAF0F6);
-const lv_color_t kLine = lv_color_hex(0xD6DEE8);
-const lv_color_t kText = lv_color_hex(0x17202A);
+const lv_color_t kPanelSoft = lv_color_hex(0xEEF3F7);
+const lv_color_t kLine = lv_color_hex(0xDDE4EC);
+const lv_color_t kText = lv_color_hex(0x101828);
 const lv_color_t kMuted = lv_color_hex(0x667085);
-const lv_color_t kBlue = lv_color_hex(0x2563EB);
-const lv_color_t kGreen = lv_color_hex(0x16A34A);
-const lv_color_t kAmber = lv_color_hex(0xF59E0B);
-const lv_color_t kRose = lv_color_hex(0xE11D48);
+const lv_color_t kBlue = lv_color_hex(0x1D4ED8);
+const lv_color_t kGreen = lv_color_hex(0x159A5B);
+const lv_color_t kAmber = lv_color_hex(0xD89A00);
+const lv_color_t kRose = lv_color_hex(0xC2185B);
 
 const lv_font_t *font_cn()
 {
@@ -264,7 +261,9 @@ void style_panel(lv_obj_t *obj)
     lv_obj_set_style_bg_color(obj, kPanel, 0);
     lv_obj_set_style_border_width(obj, 1, 0);
     lv_obj_set_style_border_color(obj, kLine, 0);
-    lv_obj_set_style_shadow_width(obj, 0, 0);
+    lv_obj_set_style_shadow_width(obj, 8, 0);
+    lv_obj_set_style_shadow_opa(obj, LV_OPA_10, 0);
+    lv_obj_set_style_shadow_ofs_y(obj, 2, 0);
     lv_obj_clear_flag(obj, LV_OBJ_FLAG_SCROLLABLE);
 }
 
@@ -458,7 +457,9 @@ lv_obj_t *make_action_button(lv_obj_t *parent, const char *text, lv_color_t bg)
     lv_obj_set_size(btn, 180, 52);
     lv_obj_set_style_radius(btn, 8, 0);
     lv_obj_set_style_bg_color(btn, bg, 0);
-    lv_obj_set_style_shadow_width(btn, 0, 0);
+    lv_obj_set_style_shadow_width(btn, 10, 0);
+    lv_obj_set_style_shadow_opa(btn, LV_OPA_20, 0);
+    lv_obj_set_style_shadow_ofs_y(btn, 4, 0);
     lv_obj_t *label = make_label(btn, text, font_cn(), lv_color_hex(0xFFFFFF));
     lv_obj_center(label);
     return btn;
@@ -467,11 +468,11 @@ lv_obj_t *make_action_button(lv_obj_t *parent, const char *text, lv_color_t bg)
 void create_header(lv_obj_t *page, const char *title, const char *subtitle)
 {
     lv_obj_t *label = make_label(page, title, font_cn(), kText);
-    lv_obj_align(label, LV_ALIGN_TOP_LEFT, 24, 18);
+    lv_obj_align(label, LV_ALIGN_TOP_LEFT, 28, 22);
 
     lv_obj_t *sub = make_label(page, subtitle, font_cn(), kMuted);
-    lv_obj_set_width(sub, 360);
-    lv_obj_align(sub, LV_ALIGN_TOP_LEFT, 24, 46);
+    lv_obj_set_width(sub, 388);
+    lv_obj_align(sub, LV_ALIGN_TOP_LEFT, 28, 50);
 }
 
 void create_page_dots(lv_obj_t *page)
@@ -492,27 +493,27 @@ void create_scale_page(lv_obj_t *scr)
     lv_obj_t *page = lv_obj_create(scr);
     s_pages[static_cast<int>(Page::Scale)] = page;
     style_page(page);
-    create_header(page, "称重信息", "感知侧识别的食材会显示在这里");
+    create_header(page, "称重信息", "当前秤上食材");
 
     lv_obj_t *weight_card = lv_obj_create(page);
-    lv_obj_set_size(weight_card, 432, 134);
-    lv_obj_align(weight_card, LV_ALIGN_TOP_MID, 0, 92);
+    lv_obj_set_size(weight_card, 424, 154);
+    lv_obj_align(weight_card, LV_ALIGN_TOP_MID, 0, 94);
     style_panel(weight_card);
 
-    lv_obj_t *caption = make_label(weight_card, "当前总重量", font_cn(), kMuted);
-    lv_obj_align(caption, LV_ALIGN_TOP_LEFT, 20, 16);
+    lv_obj_t *caption = make_label(weight_card, "总重量", font_cn(), kMuted);
+    lv_obj_align(caption, LV_ALIGN_TOP_LEFT, 22, 18);
 
     s_total_weight_label = make_label(weight_card, "-- g", font_num_big(), kText);
-    lv_obj_align(s_total_weight_label, LV_ALIGN_LEFT_MID, 20, 20);
+    lv_obj_align(s_total_weight_label, LV_ALIGN_LEFT_MID, 22, 18);
 
-    lv_obj_t *unit = make_label(weight_card, "最多支持 4 种食材组合", font_cn(), kBlue);
-    lv_obj_align(unit, LV_ALIGN_RIGHT_MID, -18, 24);
+    lv_obj_t *unit = make_label(weight_card, "最多 4 种食材", font_cn(), kBlue);
+    lv_obj_align(unit, LV_ALIGN_RIGHT_MID, -22, 20);
 
     lv_obj_t *list_card = lv_obj_create(page);
-    lv_obj_set_size(list_card, 432, 246);
-    lv_obj_align(list_card, LV_ALIGN_TOP_MID, 0, 248);
+    lv_obj_set_size(list_card, 424, 238);
+    lv_obj_align(list_card, LV_ALIGN_TOP_MID, 0, 272);
     style_panel(list_card);
-    lv_obj_set_style_pad_all(list_card, 18, 0);
+    lv_obj_set_style_pad_all(list_card, 22, 0);
 
     lv_obj_t *list_title = make_label(list_card, "秤上食材", font_cn(), kText);
     lv_obj_align(list_title, LV_ALIGN_TOP_LEFT, 0, 0);
@@ -521,31 +522,29 @@ void create_scale_page(lv_obj_t *scr)
     lv_obj_set_width(s_food_list, 390);
     lv_obj_align(s_food_list, LV_ALIGN_TOP_LEFT, 0, 42);
 
-    s_scale_status_label = make_label(page, "串口示例：chicken:150,potato:120,carrot:60", font_cn(), kMuted);
-    lv_obj_set_width(s_scale_status_label, 432);
-    lv_obj_align(s_scale_status_label, LV_ALIGN_TOP_MID, 0, 514);
-
-    lv_obj_t *next = make_action_button(page, "选择烹饪方式", kBlue);
-    lv_obj_align(next, LV_ALIGN_BOTTOM_MID, 0, -48);
+    lv_obj_t *next = make_action_button(page, "选择烹饪", kBlue);
+    lv_obj_align(next, LV_ALIGN_BOTTOM_MID, 0, -56);
     lv_obj_add_event_cb(next, next_event_cb, LV_EVENT_CLICKED, nullptr);
 }
 
 lv_obj_t *make_method_button(lv_obj_t *parent, MethodOption *option)
 {
     lv_obj_t *btn = lv_btn_create(parent);
-    lv_obj_set_size(btn, 202, 78);
+    lv_obj_set_size(btn, 202, 72);
     lv_obj_set_style_radius(btn, 8, 0);
-    lv_obj_set_style_shadow_width(btn, 0, 0);
+    lv_obj_set_style_shadow_width(btn, 6, 0);
+    lv_obj_set_style_shadow_opa(btn, LV_OPA_10, 0);
+    lv_obj_set_style_shadow_ofs_y(btn, 2, 0);
     lv_obj_set_style_border_width(btn, 1, 0);
     lv_obj_set_style_border_color(btn, kLine, 0);
     lv_obj_set_style_bg_color(btn, kPanel, 0);
     lv_obj_add_event_cb(btn, method_event_cb, LV_EVENT_CLICKED, option);
 
     lv_obj_t *name = make_label(btn, option->name_cn, font_cn(), kText);
-    lv_obj_align(name, LV_ALIGN_TOP_LEFT, 12, 10);
+    lv_obj_align(name, LV_ALIGN_TOP_LEFT, 14, 10);
     lv_obj_t *sub = make_label(btn, option->subtitle_cn, font_cn(), kMuted);
-    lv_obj_set_width(sub, 176);
-    lv_obj_align(sub, LV_ALIGN_TOP_LEFT, 12, 40);
+    lv_obj_set_width(sub, 172);
+    lv_obj_align(sub, LV_ALIGN_TOP_LEFT, 14, 38);
     return btn;
 }
 
@@ -554,11 +553,11 @@ void create_method_page(lv_obj_t *scr)
     lv_obj_t *page = lv_obj_create(scr);
     s_pages[static_cast<int>(Page::Method)] = page;
     style_page(page);
-    create_header(page, "烹饪方式", "选择当前秤上食材将要采用的处理方式");
+    create_header(page, "烹饪方式", "选择下一步处理方式");
 
     lv_obj_t *grid = lv_obj_create(page);
-    lv_obj_set_size(grid, 432, 370);
-    lv_obj_align(grid, LV_ALIGN_TOP_MID, 0, 92);
+    lv_obj_set_size(grid, 424, 342);
+    lv_obj_align(grid, LV_ALIGN_TOP_MID, 0, 94);
     style_plain(grid);
     lv_obj_set_style_pad_row(grid, 12, 0);
     lv_obj_set_style_pad_column(grid, 12, 0);
@@ -579,11 +578,11 @@ void create_method_page(lv_obj_t *scr)
     }
 
     s_method_status_label = make_label(page, "当前选择：不烹饪", font_cn(), kMuted);
-    lv_obj_set_width(s_method_status_label, 432);
-    lv_obj_align(s_method_status_label, LV_ALIGN_TOP_MID, 0, 486);
+    lv_obj_set_width(s_method_status_label, 424);
+    lv_obj_align(s_method_status_label, LV_ALIGN_TOP_MID, 0, 462);
 
-    lv_obj_t *next = make_action_button(page, "查看营养结果", kGreen);
-    lv_obj_align(next, LV_ALIGN_BOTTOM_MID, 0, -48);
+    lv_obj_t *next = make_action_button(page, "查看结果", kGreen);
+    lv_obj_align(next, LV_ALIGN_BOTTOM_MID, 0, -56);
     lv_obj_add_event_cb(next, next_event_cb, LV_EVENT_CLICKED, nullptr);
 
     lv_obj_add_flag(page, LV_OBJ_FLAG_HIDDEN);
@@ -593,24 +592,24 @@ void create_method_page(lv_obj_t *scr)
 void make_macro_card(lv_obj_t *parent, int col, const char *title, lv_color_t color, lv_obj_t **value_label)
 {
     lv_obj_t *card = lv_obj_create(parent);
-    lv_obj_set_size(card, 136, 94);
+    lv_obj_set_size(card, 132, 86);
     style_panel(card);
     lv_obj_set_grid_cell(card, LV_GRID_ALIGN_STRETCH, col, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
 
     lv_obj_t *swatch = lv_obj_create(card);
-    lv_obj_set_size(swatch, 14, 14);
-    lv_obj_set_style_radius(swatch, 3, 0);
+    lv_obj_set_size(swatch, 10, 10);
+    lv_obj_set_style_radius(swatch, 5, 0);
     lv_obj_set_style_bg_color(swatch, color, 0);
     lv_obj_set_style_border_width(swatch, 0, 0);
-    lv_obj_align(swatch, LV_ALIGN_TOP_LEFT, 10, 10);
+    lv_obj_align(swatch, LV_ALIGN_TOP_LEFT, 12, 13);
 
     lv_obj_t *name = make_label(card, title, font_cn(), kMuted);
-    lv_obj_align(name, LV_ALIGN_TOP_LEFT, 32, 8);
+    lv_obj_align(name, LV_ALIGN_TOP_LEFT, 28, 9);
 
     *value_label = make_label(card, "-- g\n--%", font_cn(), kText);
-    lv_obj_set_width(*value_label, 112);
+    lv_obj_set_width(*value_label, 104);
     lv_obj_set_style_text_align(*value_label, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_align(*value_label, LV_ALIGN_BOTTOM_MID, 0, -8);
+    lv_obj_align(*value_label, LV_ALIGN_BOTTOM_MID, 0, -10);
 }
 
 void create_result_page(lv_obj_t *scr)
@@ -618,15 +617,15 @@ void create_result_page(lv_obj_t *scr)
     lv_obj_t *page = lv_obj_create(scr);
     s_pages[static_cast<int>(Page::Result)] = page;
     style_page(page);
-    create_header(page, "营养结果", "右滑可回到称重页，完整数据已保留用于上云");
+    create_header(page, "营养结果", "主要供能结构");
 
     s_result_title = make_label(page, "等待计算", font_cn(), kMuted);
-    lv_obj_set_width(s_result_title, 432);
+    lv_obj_set_width(s_result_title, 424);
     lv_obj_align(s_result_title, LV_ALIGN_TOP_MID, 0, 76);
 
     lv_obj_t *energy_card = lv_obj_create(page);
-    lv_obj_set_size(energy_card, 432, 96);
-    lv_obj_align(energy_card, LV_ALIGN_TOP_MID, 0, 104);
+    lv_obj_set_size(energy_card, 424, 94);
+    lv_obj_align(energy_card, LV_ALIGN_TOP_MID, 0, 108);
     style_panel(energy_card);
 
     lv_obj_t *energy_caption = make_label(energy_card, "热量", font_cn(), kMuted);
@@ -635,20 +634,20 @@ void create_result_page(lv_obj_t *scr)
     s_energy_label = make_label(energy_card, "-- kcal", font_num_big(), kText);
     lv_obj_align(s_energy_label, LV_ALIGN_LEFT_MID, 18, 18);
 
-    s_weight_label = make_label(energy_card, "成品重量 -- g", font_cn(), kBlue);
+    s_weight_label = make_label(energy_card, "成品 -- g", font_cn(), kBlue);
     lv_obj_align(s_weight_label, LV_ALIGN_RIGHT_MID, -18, 16);
 
     lv_obj_t *chart_box = lv_obj_create(page);
-    lv_obj_set_size(chart_box, 252, 252);
-    lv_obj_align(chart_box, LV_ALIGN_TOP_MID, 0, 216);
+    lv_obj_set_size(chart_box, 224, 224);
+    lv_obj_align(chart_box, LV_ALIGN_TOP_MID, 0, 218);
     style_plain(chart_box);
 
     s_arc_protein = lv_arc_create(chart_box);
     s_arc_fat = lv_arc_create(chart_box);
     s_arc_carb = lv_arc_create(chart_box);
-    lv_obj_set_size(s_arc_protein, 236, 236);
-    lv_obj_set_size(s_arc_fat, 236, 236);
-    lv_obj_set_size(s_arc_carb, 236, 236);
+    lv_obj_set_size(s_arc_protein, 214, 214);
+    lv_obj_set_size(s_arc_fat, 214, 214);
+    lv_obj_set_size(s_arc_carb, 214, 214);
     lv_obj_center(s_arc_protein);
     lv_obj_center(s_arc_fat);
     lv_obj_center(s_arc_carb);
@@ -656,13 +655,13 @@ void create_result_page(lv_obj_t *scr)
     set_arc_segment(s_arc_fat, 120, 240, kAmber);
     set_arc_segment(s_arc_carb, 240, 360, kRose);
 
-    s_macro_center_label = make_label(chart_box, "三大营养\n供能占比", font_cn(), kText);
+    s_macro_center_label = make_label(chart_box, "供能\n占比", font_cn(), kText);
     lv_obj_set_style_text_align(s_macro_center_label, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_center(s_macro_center_label);
 
     lv_obj_t *macro_grid = lv_obj_create(page);
-    lv_obj_set_size(macro_grid, 432, 104);
-    lv_obj_align(macro_grid, LV_ALIGN_TOP_MID, 0, 468);
+    lv_obj_set_size(macro_grid, 424, 92);
+    lv_obj_align(macro_grid, LV_ALIGN_TOP_MID, 0, 456);
     style_plain(macro_grid);
     lv_obj_set_style_pad_column(macro_grid, 10, 0);
     static int32_t macro_cols[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
@@ -672,14 +671,6 @@ void create_result_page(lv_obj_t *scr)
     make_macro_card(macro_grid, 0, "蛋白质", kGreen, &s_protein_value_label);
     make_macro_card(macro_grid, 1, "脂肪", kAmber, &s_fat_value_label);
     make_macro_card(macro_grid, 2, "碳水", kRose, &s_carb_value_label);
-
-    s_micro_label = make_label(page, "钠 -- mg  胆固醇 -- mg", font_cn(), kMuted);
-    lv_obj_set_width(s_micro_label, 432);
-    lv_obj_align(s_micro_label, LV_ALIGN_BOTTOM_MID, 0, -48);
-
-    s_result_status_label = make_label(page, "", font_cn(), kMuted);
-    lv_obj_set_width(s_result_status_label, 432);
-    lv_obj_align(s_result_status_label, LV_ALIGN_BOTTOM_MID, 0, -78);
 
     lv_obj_add_flag(page, LV_OBJ_FLAG_HIDDEN);
 }
@@ -729,11 +720,8 @@ void update_result_page(const CloudNutritionRecord &record)
     start += fat_angle;
     set_arc_segment(s_arc_carb, start, start + carb_angle, kRose);
 
-    char input_text[128] = {};
-    format_ingredients(record.input, input_text, sizeof(input_text));
-
     char text[192] = {};
-    snprintf(text, sizeof(text), "%s | %.100s", method_name_cn(record.method), input_text);
+    snprintf(text, sizeof(text), "%s方案", method_name_cn(record.method));
     lv_label_set_text(s_result_title, text);
 
     snprintf(text, sizeof(text), "%d kcal", static_cast<int>(record.prediction.cooked_energy_kcal + 0.5f));
@@ -741,7 +729,7 @@ void update_result_page(const CloudNutritionRecord &record)
 
     char amount[24] = {};
     format_one_decimal(record.prediction.cooked_weight_g, amount, sizeof(amount));
-    snprintf(text, sizeof(text), "成品重量 %s g", amount);
+    snprintf(text, sizeof(text), "成品 %s g", amount);
     lv_label_set_text(s_weight_label, text);
 
     format_one_decimal(record.prediction.cooked_protein_g, amount, sizeof(amount));
@@ -755,13 +743,6 @@ void update_result_page(const CloudNutritionRecord &record)
     format_one_decimal(record.prediction.cooked_carbohydrate_g, amount, sizeof(amount));
     snprintf(text, sizeof(text), "%s g\n%d%%", amount, static_cast<int>(carb_pct + 0.5f));
     lv_label_set_text(s_carb_value_label, text);
-
-    snprintf(text,
-             sizeof(text),
-             "钠 %.0f mg  胆固醇 %.0f mg",
-             static_cast<double>(record.prediction.cooked_sodium_mg),
-             static_cast<double>(record.prediction.cooked_cholesterol_mg));
-    lv_label_set_text(s_micro_label, text);
 }
 
 void ui_timer_cb(lv_timer_t *)
@@ -786,18 +767,14 @@ void ui_timer_cb(lv_timer_t *)
     snprintf(text, sizeof(text), "当前选择：%s", method_name_cn(method));
     lv_label_set_text(s_method_status_label, text);
 
-    if (state == InferenceState::Running) {
-        lv_label_set_text(s_result_status_label, "正在计算营养信息...");
-    } else if (state == InferenceState::Failed) {
-        lv_label_set_text(s_result_status_label, "模型推理失败，请检查输入");
-    } else if (dirty) {
-        lv_label_set_text(s_result_status_label, "进入本页后自动计算");
-    } else {
-        lv_label_set_text(s_result_status_label, "结果已更新，可用于后续上云");
-    }
-
     if (record.valid && state != InferenceState::Running && !dirty) {
         update_result_page(record);
+    } else if (state == InferenceState::Running) {
+        lv_label_set_text(s_result_title, "正在计算");
+    } else if (state == InferenceState::Failed) {
+        lv_label_set_text(s_result_title, "计算失败");
+    } else if (dirty) {
+        lv_label_set_text(s_result_title, "等待计算");
     }
 }
 
