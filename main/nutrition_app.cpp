@@ -47,20 +47,20 @@ struct CloudNutritionRecord {
 
 struct MethodOption {
     const char *name_cn;
-    const char *subtitle_cn;
     nutricook::CookingMethod method;
     lv_obj_t *btn;
+    lv_obj_t *label;
 };
 
 MethodOption s_methods[] = {
-    {"不烹饪", "按生食/原始营养估算", nutricook::CookingMethod::Raw, nullptr},
-    {"水煮", "清淡，含水烹调", nutricook::CookingMethod::Boil, nullptr},
-    {"红烧", "酱汁炖煮", nutricook::CookingMethod::Braise, nullptr},
-    {"油炸", "高油高温", nutricook::CookingMethod::DeepFry, nullptr},
-    {"煎制", "平底锅加热", nutricook::CookingMethod::PanFry, nullptr},
-    {"烤制", "干热烘烤", nutricook::CookingMethod::Roast, nullptr},
-    {"清蒸", "低油蒸汽", nutricook::CookingMethod::Steam, nullptr},
-    {"炒制", "快速翻炒", nutricook::CookingMethod::StirFry, nullptr},
+    {"不烹饪", nutricook::CookingMethod::Raw, nullptr, nullptr},
+    {"水煮", nutricook::CookingMethod::Boil, nullptr, nullptr},
+    {"红烧", nutricook::CookingMethod::Braise, nullptr, nullptr},
+    {"油炸", nutricook::CookingMethod::DeepFry, nullptr, nullptr},
+    {"煎制", nutricook::CookingMethod::PanFry, nullptr, nullptr},
+    {"烤制", nutricook::CookingMethod::Roast, nullptr, nullptr},
+    {"清蒸", nutricook::CookingMethod::Steam, nullptr, nullptr},
+    {"炒制", nutricook::CookingMethod::StirFry, nullptr, nullptr},
 };
 
 SemaphoreHandle_t s_mutex = nullptr;
@@ -73,23 +73,26 @@ Page s_page = Page::Scale;
 
 lv_obj_t *s_pages[3] = {};
 lv_obj_t *s_dots[3] = {};
-lv_obj_t *s_food_list = nullptr;
+lv_obj_t *s_food_name_labels[nutricook::kMaxIngredientsPerDish] = {};
+lv_obj_t *s_food_weight_labels[nutricook::kMaxIngredientsPerDish] = {};
 lv_obj_t *s_total_weight_label = nullptr;
 lv_obj_t *s_method_status_label = nullptr;
 lv_obj_t *s_result_title = nullptr;
 lv_obj_t *s_energy_label = nullptr;
 lv_obj_t *s_weight_label = nullptr;
 lv_obj_t *s_macro_center_label = nullptr;
-lv_obj_t *s_protein_value_label = nullptr;
-lv_obj_t *s_fat_value_label = nullptr;
-lv_obj_t *s_carb_value_label = nullptr;
+lv_obj_t *s_protein_amount_label = nullptr;
+lv_obj_t *s_protein_pct_label = nullptr;
+lv_obj_t *s_fat_amount_label = nullptr;
+lv_obj_t *s_fat_pct_label = nullptr;
+lv_obj_t *s_carb_amount_label = nullptr;
+lv_obj_t *s_carb_pct_label = nullptr;
 lv_obj_t *s_arc_protein = nullptr;
 lv_obj_t *s_arc_fat = nullptr;
 lv_obj_t *s_arc_carb = nullptr;
 
 const lv_color_t kBg = lv_color_hex(0xF7F8FA);
 const lv_color_t kPanel = lv_color_hex(0xFFFFFF);
-const lv_color_t kPanelSoft = lv_color_hex(0xEEF3F7);
 const lv_color_t kLine = lv_color_hex(0xDDE4EC);
 const lv_color_t kText = lv_color_hex(0x101828);
 const lv_color_t kMuted = lv_color_hex(0x667085);
@@ -106,6 +109,11 @@ const lv_font_t *font_cn()
 const lv_font_t *font_num_big()
 {
     return &lv_font_montserrat_32;
+}
+
+const lv_font_t *font_num_mid()
+{
+    return &lv_font_montserrat_22;
 }
 
 void lock_state()
@@ -201,28 +209,6 @@ float total_weight(const IngredientState &state)
         total += state.items[i].raw_weight_g;
     }
     return total;
-}
-
-void format_ingredients(const IngredientState &state, char *buffer, size_t buffer_size)
-{
-    size_t used = 0;
-    buffer[0] = '\0';
-    for (size_t i = 0; i < state.count; ++i) {
-        const int written = snprintf(buffer + used,
-                                     buffer_size - used,
-                                     "%s%s %.0fg",
-                                     i == 0 ? "" : ", ",
-                                     nutricook::ingredient_name(state.items[i].ingredient),
-                                     static_cast<double>(state.items[i].raw_weight_g));
-        if (written < 0) {
-            break;
-        }
-        used += static_cast<size_t>(written);
-        if (used >= buffer_size) {
-            buffer[buffer_size - 1] = '\0';
-            break;
-        }
-    }
 }
 
 void format_one_decimal(float value, char *buffer, size_t buffer_size)
@@ -325,10 +311,10 @@ void set_arc_segment(lv_obj_t *arc, int start, int end, lv_color_t color)
 {
     lv_arc_set_bg_angles(arc, start, end);
     lv_arc_set_angles(arc, start, end);
-    lv_obj_set_style_arc_width(arc, 30, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_width(arc, 26, LV_PART_INDICATOR);
     lv_obj_set_style_arc_color(arc, color, LV_PART_INDICATOR);
     lv_obj_set_style_arc_opa(arc, LV_OPA_COVER, LV_PART_INDICATOR);
-    lv_obj_set_style_arc_width(arc, 30, LV_PART_MAIN);
+    lv_obj_set_style_arc_width(arc, 26, LV_PART_MAIN);
     lv_obj_set_style_arc_opa(arc, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_remove_style(arc, nullptr, LV_PART_KNOB);
     lv_obj_clear_flag(arc, LV_OBJ_FLAG_CLICKABLE);
@@ -338,9 +324,12 @@ void update_method_styles()
 {
     for (auto &option : s_methods) {
         const bool selected = option.method == s_selected_method;
-        lv_obj_set_style_bg_color(option.btn, selected ? lv_color_hex(0xDBEAFE) : kPanel, 0);
-        lv_obj_set_style_border_color(option.btn, selected ? kBlue : kLine, 0);
+        lv_obj_set_style_bg_color(option.btn, selected ? kText : kPanel, 0);
+        lv_obj_set_style_border_color(option.btn, selected ? kText : kLine, 0);
         lv_obj_set_style_border_width(option.btn, selected ? 2 : 1, 0);
+        if (option.label) {
+            lv_obj_set_style_text_color(option.label, selected ? lv_color_hex(0xFFFFFF) : kText, 0);
+        }
     }
 }
 
@@ -518,9 +507,21 @@ void create_scale_page(lv_obj_t *scr)
     lv_obj_t *list_title = make_label(list_card, "秤上食材", font_cn(), kText);
     lv_obj_align(list_title, LV_ALIGN_TOP_LEFT, 0, 0);
 
-    s_food_list = make_label(list_card, "等待输入", font_cn(), kText);
-    lv_obj_set_width(s_food_list, 390);
-    lv_obj_align(s_food_list, LV_ALIGN_TOP_LEFT, 0, 42);
+    for (size_t i = 0; i < nutricook::kMaxIngredientsPerDish; ++i) {
+        lv_obj_t *row = lv_obj_create(list_card);
+        lv_obj_set_size(row, 380, 34);
+        lv_obj_align(row, LV_ALIGN_TOP_LEFT, 0, 42 + static_cast<int>(i) * 40);
+        style_plain(row);
+
+        s_food_name_labels[i] = make_label(row, "--", font_cn(), kText);
+        lv_obj_set_width(s_food_name_labels[i], 230);
+        lv_obj_align(s_food_name_labels[i], LV_ALIGN_LEFT_MID, 0, 0);
+
+        s_food_weight_labels[i] = make_label(row, "-- g", font_num_mid(), kText);
+        lv_obj_set_width(s_food_weight_labels[i], 120);
+        lv_obj_set_style_text_align(s_food_weight_labels[i], LV_TEXT_ALIGN_RIGHT, 0);
+        lv_obj_align(s_food_weight_labels[i], LV_ALIGN_RIGHT_MID, 0, 0);
+    }
 
     lv_obj_t *next = make_action_button(page, "选择烹饪", kBlue);
     lv_obj_align(next, LV_ALIGN_BOTTOM_MID, 0, -56);
@@ -530,7 +531,7 @@ void create_scale_page(lv_obj_t *scr)
 lv_obj_t *make_method_button(lv_obj_t *parent, MethodOption *option)
 {
     lv_obj_t *btn = lv_btn_create(parent);
-    lv_obj_set_size(btn, 202, 72);
+    lv_obj_set_size(btn, 202, 68);
     lv_obj_set_style_radius(btn, 8, 0);
     lv_obj_set_style_shadow_width(btn, 6, 0);
     lv_obj_set_style_shadow_opa(btn, LV_OPA_10, 0);
@@ -540,11 +541,8 @@ lv_obj_t *make_method_button(lv_obj_t *parent, MethodOption *option)
     lv_obj_set_style_bg_color(btn, kPanel, 0);
     lv_obj_add_event_cb(btn, method_event_cb, LV_EVENT_CLICKED, option);
 
-    lv_obj_t *name = make_label(btn, option->name_cn, font_cn(), kText);
-    lv_obj_align(name, LV_ALIGN_TOP_LEFT, 14, 10);
-    lv_obj_t *sub = make_label(btn, option->subtitle_cn, font_cn(), kMuted);
-    lv_obj_set_width(sub, 172);
-    lv_obj_align(sub, LV_ALIGN_TOP_LEFT, 14, 38);
+    option->label = make_label(btn, option->name_cn, font_cn(), kText);
+    lv_obj_center(option->label);
     return btn;
 }
 
@@ -553,11 +551,11 @@ void create_method_page(lv_obj_t *scr)
     lv_obj_t *page = lv_obj_create(scr);
     s_pages[static_cast<int>(Page::Method)] = page;
     style_page(page);
-    create_header(page, "烹饪方式", "选择下一步处理方式");
+    create_header(page, "烹饪方式", "选择当前食材的处理方式");
 
     lv_obj_t *grid = lv_obj_create(page);
-    lv_obj_set_size(grid, 424, 342);
-    lv_obj_align(grid, LV_ALIGN_TOP_MID, 0, 94);
+    lv_obj_set_size(grid, 424, 320);
+    lv_obj_align(grid, LV_ALIGN_TOP_MID, 0, 104);
     style_plain(grid);
     lv_obj_set_style_pad_row(grid, 12, 0);
     lv_obj_set_style_pad_column(grid, 12, 0);
@@ -577,7 +575,7 @@ void create_method_page(lv_obj_t *scr)
                              1);
     }
 
-    s_method_status_label = make_label(page, "当前选择：不烹饪", font_cn(), kMuted);
+    s_method_status_label = make_label(page, "当前选择  不烹饪", font_cn(), kMuted);
     lv_obj_set_width(s_method_status_label, 424);
     lv_obj_align(s_method_status_label, LV_ALIGN_TOP_MID, 0, 462);
 
@@ -589,27 +587,37 @@ void create_method_page(lv_obj_t *scr)
     update_method_styles();
 }
 
-void make_macro_card(lv_obj_t *parent, int col, const char *title, lv_color_t color, lv_obj_t **value_label)
+void make_macro_row(lv_obj_t *parent,
+                    int y,
+                    const char *title,
+                    lv_color_t color,
+                    lv_obj_t **amount_label,
+                    lv_obj_t **pct_label)
 {
-    lv_obj_t *card = lv_obj_create(parent);
-    lv_obj_set_size(card, 132, 86);
-    style_panel(card);
-    lv_obj_set_grid_cell(card, LV_GRID_ALIGN_STRETCH, col, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
+    lv_obj_t *row = lv_obj_create(parent);
+    lv_obj_set_size(row, 384, 36);
+    lv_obj_align(row, LV_ALIGN_TOP_MID, 0, y);
+    style_plain(row);
 
-    lv_obj_t *swatch = lv_obj_create(card);
+    lv_obj_t *swatch = lv_obj_create(row);
     lv_obj_set_size(swatch, 10, 10);
     lv_obj_set_style_radius(swatch, 5, 0);
     lv_obj_set_style_bg_color(swatch, color, 0);
     lv_obj_set_style_border_width(swatch, 0, 0);
-    lv_obj_align(swatch, LV_ALIGN_TOP_LEFT, 12, 13);
+    lv_obj_align(swatch, LV_ALIGN_LEFT_MID, 0, 0);
 
-    lv_obj_t *name = make_label(card, title, font_cn(), kMuted);
-    lv_obj_align(name, LV_ALIGN_TOP_LEFT, 28, 9);
+    lv_obj_t *name = make_label(row, title, font_cn(), kText);
+    lv_obj_align(name, LV_ALIGN_LEFT_MID, 22, 0);
 
-    *value_label = make_label(card, "-- g\n--%", font_cn(), kText);
-    lv_obj_set_width(*value_label, 104);
-    lv_obj_set_style_text_align(*value_label, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_align(*value_label, LV_ALIGN_BOTTOM_MID, 0, -10);
+    *amount_label = make_label(row, "-- g", font_num_mid(), kText);
+    lv_obj_set_width(*amount_label, 96);
+    lv_obj_set_style_text_align(*amount_label, LV_TEXT_ALIGN_RIGHT, 0);
+    lv_obj_align(*amount_label, LV_ALIGN_RIGHT_MID, -74, 0);
+
+    *pct_label = make_label(row, "--%", font_num_mid(), kMuted);
+    lv_obj_set_width(*pct_label, 58);
+    lv_obj_set_style_text_align(*pct_label, LV_TEXT_ALIGN_RIGHT, 0);
+    lv_obj_align(*pct_label, LV_ALIGN_RIGHT_MID, 0, 0);
 }
 
 void create_result_page(lv_obj_t *scr)
@@ -617,7 +625,7 @@ void create_result_page(lv_obj_t *scr)
     lv_obj_t *page = lv_obj_create(scr);
     s_pages[static_cast<int>(Page::Result)] = page;
     style_page(page);
-    create_header(page, "营养结果", "主要供能结构");
+    create_header(page, "营养结果", "热量与主要营养构成");
 
     s_result_title = make_label(page, "等待计算", font_cn(), kMuted);
     lv_obj_set_width(s_result_title, 424);
@@ -638,16 +646,16 @@ void create_result_page(lv_obj_t *scr)
     lv_obj_align(s_weight_label, LV_ALIGN_RIGHT_MID, -18, 16);
 
     lv_obj_t *chart_box = lv_obj_create(page);
-    lv_obj_set_size(chart_box, 224, 224);
-    lv_obj_align(chart_box, LV_ALIGN_TOP_MID, 0, 218);
+    lv_obj_set_size(chart_box, 206, 206);
+    lv_obj_align(chart_box, LV_ALIGN_TOP_MID, 0, 216);
     style_plain(chart_box);
 
     s_arc_protein = lv_arc_create(chart_box);
     s_arc_fat = lv_arc_create(chart_box);
     s_arc_carb = lv_arc_create(chart_box);
-    lv_obj_set_size(s_arc_protein, 214, 214);
-    lv_obj_set_size(s_arc_fat, 214, 214);
-    lv_obj_set_size(s_arc_carb, 214, 214);
+    lv_obj_set_size(s_arc_protein, 198, 198);
+    lv_obj_set_size(s_arc_fat, 198, 198);
+    lv_obj_set_size(s_arc_carb, 198, 198);
     lv_obj_center(s_arc_protein);
     lv_obj_center(s_arc_fat);
     lv_obj_center(s_arc_carb);
@@ -659,37 +667,33 @@ void create_result_page(lv_obj_t *scr)
     lv_obj_set_style_text_align(s_macro_center_label, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_center(s_macro_center_label);
 
-    lv_obj_t *macro_grid = lv_obj_create(page);
-    lv_obj_set_size(macro_grid, 424, 92);
-    lv_obj_align(macro_grid, LV_ALIGN_TOP_MID, 0, 456);
-    style_plain(macro_grid);
-    lv_obj_set_style_pad_column(macro_grid, 10, 0);
-    static int32_t macro_cols[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
-    static int32_t macro_rows[] = {LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST};
-    lv_obj_set_grid_dsc_array(macro_grid, macro_cols, macro_rows);
+    lv_obj_t *macro_panel = lv_obj_create(page);
+    lv_obj_set_size(macro_panel, 424, 136);
+    lv_obj_align(macro_panel, LV_ALIGN_TOP_MID, 0, 444);
+    style_panel(macro_panel);
 
-    make_macro_card(macro_grid, 0, "蛋白质", kGreen, &s_protein_value_label);
-    make_macro_card(macro_grid, 1, "脂肪", kAmber, &s_fat_value_label);
-    make_macro_card(macro_grid, 2, "碳水", kRose, &s_carb_value_label);
+    make_macro_row(macro_panel, 12, "蛋白质", kGreen, &s_protein_amount_label, &s_protein_pct_label);
+    make_macro_row(macro_panel, 50, "脂肪", kAmber, &s_fat_amount_label, &s_fat_pct_label);
+    make_macro_row(macro_panel, 88, "碳水", kRose, &s_carb_amount_label, &s_carb_pct_label);
 
     lv_obj_add_flag(page, LV_OBJ_FLAG_HIDDEN);
 }
 
 void update_scale_page(const IngredientState &ingredients)
 {
-    char text[256] = {};
-    char one[72] = {};
-    text[0] = '\0';
-    for (size_t i = 0; i < ingredients.count; ++i) {
-        snprintf(one,
-                 sizeof(one),
-                 "%u. %s   %.0f g\n",
-                 static_cast<unsigned>(i + 1),
-                 nutricook::ingredient_name(ingredients.items[i].ingredient),
-                 static_cast<double>(ingredients.items[i].raw_weight_g));
-        strncat(text, one, sizeof(text) - strlen(text) - 1);
+    for (size_t i = 0; i < nutricook::kMaxIngredientsPerDish; ++i) {
+        if (i < ingredients.count) {
+            char weight[32] = {};
+            snprintf(weight, sizeof(weight), "%.0f g", static_cast<double>(ingredients.items[i].raw_weight_g));
+            lv_label_set_text(s_food_name_labels[i], nutricook::ingredient_name(ingredients.items[i].ingredient));
+            lv_label_set_text(s_food_weight_labels[i], weight);
+            lv_obj_clear_flag(s_food_name_labels[i], LV_OBJ_FLAG_HIDDEN);
+            lv_obj_clear_flag(s_food_weight_labels[i], LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_add_flag(s_food_name_labels[i], LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag(s_food_weight_labels[i], LV_OBJ_FLAG_HIDDEN);
+        }
     }
-    lv_label_set_text(s_food_list, ingredients.count > 0 ? text : "等待输入");
 
     char weight[32] = {};
     snprintf(weight, sizeof(weight), "%.0f g", static_cast<double>(total_weight(ingredients)));
@@ -733,16 +737,22 @@ void update_result_page(const CloudNutritionRecord &record)
     lv_label_set_text(s_weight_label, text);
 
     format_one_decimal(record.prediction.cooked_protein_g, amount, sizeof(amount));
-    snprintf(text, sizeof(text), "%s g\n%d%%", amount, static_cast<int>(protein_pct + 0.5f));
-    lv_label_set_text(s_protein_value_label, text);
+    snprintf(text, sizeof(text), "%s g", amount);
+    lv_label_set_text(s_protein_amount_label, text);
+    snprintf(text, sizeof(text), "%d%%", static_cast<int>(protein_pct + 0.5f));
+    lv_label_set_text(s_protein_pct_label, text);
 
     format_one_decimal(record.prediction.cooked_fat_g, amount, sizeof(amount));
-    snprintf(text, sizeof(text), "%s g\n%d%%", amount, static_cast<int>(fat_pct + 0.5f));
-    lv_label_set_text(s_fat_value_label, text);
+    snprintf(text, sizeof(text), "%s g", amount);
+    lv_label_set_text(s_fat_amount_label, text);
+    snprintf(text, sizeof(text), "%d%%", static_cast<int>(fat_pct + 0.5f));
+    lv_label_set_text(s_fat_pct_label, text);
 
     format_one_decimal(record.prediction.cooked_carbohydrate_g, amount, sizeof(amount));
-    snprintf(text, sizeof(text), "%s g\n%d%%", amount, static_cast<int>(carb_pct + 0.5f));
-    lv_label_set_text(s_carb_value_label, text);
+    snprintf(text, sizeof(text), "%s g", amount);
+    lv_label_set_text(s_carb_amount_label, text);
+    snprintf(text, sizeof(text), "%d%%", static_cast<int>(carb_pct + 0.5f));
+    lv_label_set_text(s_carb_pct_label, text);
 }
 
 void ui_timer_cb(lv_timer_t *)
@@ -764,7 +774,7 @@ void ui_timer_cb(lv_timer_t *)
     update_scale_page(ingredients);
 
     char text[96] = {};
-    snprintf(text, sizeof(text), "当前选择：%s", method_name_cn(method));
+    snprintf(text, sizeof(text), "当前选择  %s", method_name_cn(method));
     lv_label_set_text(s_method_status_label, text);
 
     if (record.valid && state != InferenceState::Running && !dirty) {
