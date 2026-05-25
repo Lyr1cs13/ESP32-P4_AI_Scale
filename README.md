@@ -1,46 +1,50 @@
-﻿# AI-Scale
+# AI-Scale
 
-AI-Scale 是基于 ESP32-P4、480x640 MIPI 触控屏和本地轻量营养模型的智能营养秤原型。系统接收感知侧给出的食材种类与重量，用户在触控屏选择烹饪方式，然后在设备端估算烹饪后的热量和主要营养成分。
+AI-Scale 是基于 ESP32-P4、480x640 MIPI 触控屏和本地 NutriCook 轻量营养模型的智能营养秤原型。系统接收感知侧提供的食材种类与重量，用户在触控屏选择烹饪方式，设备端本地估算烹饪后的热量和主要营养信息。
 
-当前版本仍是联调前版本，重点验证“感知输入 + 触控选择 + 本地营养推理 + 屏幕显示”的完整链路。
+当前版本是联调前版本，重点验证：
+
+```text
+食材识别 + 重量输入 + 触控选择 + 本地推理 + 屏幕显示
+```
 
 ## 当前功能
 
-- ESP32-P4 + ST7701 MIPI 480x640 触控屏显示。
-- 三页触控 UI：
-  - 页面 1：显示当前称重食材种类、重量和总重量。
-  - 页面 2：选择烹饪方式，包含“不烹饪/生食”选项。
-  - 页面 3：显示热量、成品重量、蛋白质/脂肪/碳水克数和供能占比。
-- 支持右滑进入下一页，第三页继续右滑回第一页；也支持左滑返回上一页。
-- 串口文本模拟感知侧输入，便于快速联调。
-- 集成 NutriCook LightGBM 营养估算模型。
-- LightGBM 文本模型在构建阶段离线打包为二进制树表，运行时直接映射，避免首次推理时在 ESP32-P4 上解析大文本模型。
-- 完整 11 项营养结果保存在设备端，供后续上云模块读取。
-- 启用 LVGL SimSun CJK 字体，支持中文 UI 显示。
+- ESP32-P4 本地运行 NutriCook 营养估算模型。
+- 支持 480x640 MIPI 触控屏中文 UI。
+- 三页交互：
+  - 页面 1：显示当前食材与总重量。
+  - 页面 2：选择烹饪方式。
+  - 页面 3：显示热量、成品重量、蛋白质、脂肪、碳水和供能占比。
+- 支持串口文本模拟感知输入。
+- 支持代码接口接收感知侧输入，便于后续与摄像头识别和重量传感器融合。
+- 完整 11 项营养结果在设备端保留，可供后续上云模块读取。
+- LightGBM 文本模型在构建阶段打包为二进制树表，运行时直接映射，避免上电后解析大文本模型。
 
-## 硬件平台
+## 硬件与环境
 
 - ESP32-P4
 - 32MB Flash
 - 32MB PSRAM
 - ST7701 MIPI 480x640 触控屏
-- CST826/兼容触控控制器
+- CST826/CST816 兼容触控控制器
 - ESP-IDF v5.5.x
 - LVGL 9.x
 
 ## 数据链路
 
 ```text
-摄像头 YOLO 食材识别 + 重量传感器称重
+摄像头/YOLO 食材识别
+重量传感器称重
         |
         v
-食材种类 + 食材重量
+食材英文名 + 重量 g
         |
         v
 触控屏选择烹饪方式
         |
         v
-ESP32-P4 本地营养模型推理
+ESP32-P4 本地 NutriCook 推理
         |
         v
 屏幕显示 + 本地保存完整结果 + 后续上云
@@ -48,23 +52,11 @@ ESP32-P4 本地营养模型推理
 
 ## 感知侧对接
 
-感知侧同学负责输出秤上食材的信息：
+当前预留了两种输入方式。
 
-```c
-typedef struct {
-    const char *name;   // NutriCook 支持的英文食材名，例如 "chicken"
-    float weight_g;     // 重量，单位 g
-} food_item_t;
-```
+### 方式 1：串口模拟
 
-约束：
-
-- 单次最多 4 种食材。
-- 食材名必须映射到 NutriCook 支持的 31 类食材之一。
-- 重量单位固定为 g。
-- YOLO 识别出不支持的类别时，需要在感知侧或融合层做过滤、提示或映射。
-
-当前临时输入方式是串口文本：
+用于快速联调，不需要接入摄像头和称重模块。
 
 ```text
 chicken:150,potato:120,carrot:60
@@ -73,7 +65,44 @@ fish:200,ginger:10,garlic:8
 tofu:150,cabbage:100
 ```
 
-## 支持的食材
+格式要求：
+
+- 使用英文食材名。
+- 重量单位固定为 g。
+- 多个食材用 `,` 或 `;` 分隔。
+- 食材名和重量用 `:`、`=` 或空格分隔。
+
+### 方式 2：代码接口
+
+感知侧完成 YOLO 识别和称重融合后，可以直接调用：
+
+```c
+#include "nutrition_app.h"
+
+bool nutrition_update_ingredients_from_names(const char *const names[],
+                                             const float weights_g[],
+                                             size_t count);
+```
+
+示例：
+
+```c
+const char *names[] = {"chicken", "potato", "carrot"};
+float weights[] = {150.0f, 120.0f, 60.0f};
+
+nutrition_update_ingredients_from_names(names, weights, 3);
+```
+
+调用成功后，第一页会刷新食材和重量；如果用户已经选择烹饪方式，进入结果页后会重新推理。
+
+对接约束：
+
+- 单次最多 4 种食材。
+- `names[]` 必须使用 NutriCook 支持的英文食材名。
+- `weights_g[]` 单位固定为 g，且必须大于 0。
+- 不支持的 YOLO 类别需要在感知侧或融合层过滤、提示或映射。
+
+## 支持食材
 
 ```text
 apple, banana, beef, bell_pepper, cabbage, carrot, cauliflower,
@@ -83,17 +112,26 @@ pork, potato, shrimp, small_pepper, strawberry, tofu, tomato,
 watermelon
 ```
 
-## 支持的烹饪方式
+## 支持烹饪方式
 
 ```text
 raw, boil, braise, deep_fry, pan_fry, roast, steam, stir_fry
 ```
 
-`raw` 表示不烹饪，直接按原始食材营养表估算。
+`raw` 表示不烹饪，按原始食材营养估算。
 
 ## 输出结果
 
-模型完整输出 11 项：
+屏幕重点显示：
+
+- 热量 kcal
+- 成品重量 g
+- 蛋白质 g
+- 脂肪 g
+- 碳水 g
+- 蛋白质/脂肪/碳水供能占比
+
+完整结果包含 11 项：
 
 ```text
 cooked_weight_g
@@ -109,36 +147,60 @@ cooked_iron_mg
 cooked_potassium_mg
 ```
 
-屏幕只重点显示用户最直观看到的信息：热量、成品重量、蛋白质、脂肪、碳水及三者供能占比。完整结果可通过接口读取：
+后续上云模块可读取最近一次有效结果：
 
 ```c
-bool nutrition_copy_latest_result(float outputs[11]);
+#include "nutrition_app.h"
+
+float outputs[NUTRITION_OUTPUT_COUNT];
+bool ok = nutrition_copy_latest_result(outputs);
 ```
 
-## 构建
+## 构建与烧录
+
+首次或配置变化后建议干净构建：
 
 ```powershell
 cd D:\Espressif\App\AI-Scale
-idf.py reconfigure
+idf.py fullclean
 idf.py build
 idf.py -p COM5 flash monitor
 ```
 
-如果本地 `build` 目录来自其他工程，先换一个构建目录或执行清理：
+日常代码小改可直接：
 
 ```powershell
-idf.py -B build-ai-scale build
+idf.py build
+idf.py -p COM5 flash monitor
 ```
 
-本项目需要启用 PSRAM、32MB Flash、大 app 分区、LVGL 中文字体。相关默认配置在：
+不要日常使用 `erase-flash`，普通 `flash` 只写必要区域。
+
+## 配置文件
 
 - `sdkconfig.defaults`
 - `sdkconfig.defaults.esp32p4`
 - `partitions.csv`
 
+当前工程使用 32MB Flash 和 31MB app 分区。NutriCook 模型二进制树表随固件打包，运行时映射加载。
+
 ## 模型说明
 
-NutriCook 是轻量营养估算模型，适合做本地快速估算，不等同于精确营养检测。当前部署没有对 LightGBM 树做量化、剪枝或近似替代，只是把文本模型离线打包为二进制树表，因此不会因为这次部署方式额外损失模型精度。
+NutriCook 是轻量营养估算模型，适合本地快速估算，不等同于精确营养检测。当前部署没有对 LightGBM 树做量化、剪枝或近似替代，只是把文本模型离线打包为二进制树表，因此部署方式本身不会额外损失模型精度。
 
-最终准确度主要受训练数据、YOLO 食材识别准确率、重量传感器误差、烹饪方式简化建模和实际烹饪差异影响。
+实际准确度主要受训练数据、食材识别准确率、重量传感器误差、烹饪方式简化建模和真实烹饪差异影响。
 
+## 版本回退
+
+字体显示确认正常的版本已打标签：
+
+```powershell
+git checkout ui-font-working-20260525
+```
+
+回到最新主线：
+
+```powershell
+git checkout main
+git pull
+```

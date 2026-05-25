@@ -18,6 +18,7 @@
 #include "lvgl.h"
 #include "demos/lv_demos.h"
 #include "HAL/lv_drv/lv_drv.h"
+#include "nutrition_app.h"
 
 static const char *TAG = "dsi-example";
 
@@ -108,7 +109,6 @@ void app_main(void)
     // static esp_lcd_panel_handle_t mipi_dpi_panel = NULL;
    // i2c_scanner();
     lv_display_t *disp = lvgl_port_init_with_display_init(&cfg);
-    extern void nutrition_lvgl_ui(lv_display_t *disp);
     nutrition_lvgl_ui(disp);
     
 }

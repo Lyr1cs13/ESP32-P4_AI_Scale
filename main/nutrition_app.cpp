@@ -803,6 +803,43 @@ extern "C" void nutrition_lvgl_ui(lv_display_t *disp)
     xTaskCreate(serial_input_task, "nutrition_serial", 4096, nullptr, 4, nullptr);
 }
 
+extern "C" bool nutrition_update_ingredients_from_names(const char *const names[],
+                                                        const float weights_g[],
+                                                        size_t count)
+{
+    if (names == nullptr || weights_g == nullptr || count == 0 || count > nutricook::kMaxIngredientsPerDish) {
+        return false;
+    }
+
+    IngredientState parsed = {};
+    for (size_t i = 0; i < count; ++i) {
+        if (names[i] == nullptr || weights_g[i] <= 0.0f) {
+            return false;
+        }
+
+        char name[32] = {};
+        snprintf(name, sizeof(name), "%s", names[i]);
+        normalize_token(name);
+
+        nutricook::Ingredient ingredient = nutricook::Ingredient::Apple;
+        if (!ingredient_from_name(name, &ingredient)) {
+            return false;
+        }
+
+        parsed.items[parsed.count++] = {ingredient, weights_g[i]};
+    }
+
+    lock_state();
+    s_ingredients = parsed;
+    s_prediction_dirty = true;
+    if (s_inference_state != InferenceState::Running) {
+        s_inference_state = InferenceState::Idle;
+    }
+    unlock_state();
+
+    return true;
+}
+
 extern "C" bool nutrition_copy_latest_result(float outputs[nutricook::kOutputCount])
 {
     if (outputs == nullptr) {
