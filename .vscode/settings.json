@@ -1,0 +1,16 @@
+{
+  "idf.openOcdConfigs": [
+    "board/esp32p4-builtin.cfg"
+  ],
+  "idf.customExtraVars": {
+    "IDF_TARGET": "esp32p4"
+  },
+  "clangd.path": "c:\\Dpan\\Espressif\\tools\\esp-clang\\esp-19.1.2_20250312\\esp-clang\\bin\\clangd.exe",
+  "clangd.arguments": [
+    "--background-index",
+    "--query-driver=**",
+    "--compile-commands-dir=c:\\Dpan\\esp32code\\esp32-p4-platform\\examples\\esp-idf\\12_simple_video_server\\build"
+  ],
+  "idf.portWin": "COM17",
+  "idf.flashType": "UART"
+}

@@ -1,0 +1,2 @@
+source C:/Dpan/esp32code/esp32-p4-platform/examples/esp-idf/12_simple_video_server/build/gdbinit/symbols
+source C:/Dpan/esp32code/esp32-p4-platform/examples/esp-idf/12_simple_video_server/build/gdbinit/connect

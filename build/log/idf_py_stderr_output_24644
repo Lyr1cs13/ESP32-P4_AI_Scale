@@ -1,0 +1,5 @@
+Command: cmake -G Ninja -DPYTHON_DEPS_CHECKED=1 -DPYTHON=c:\Dpan\Espressif\python_env\idf5.5_py3.11_env\Scripts\python.exe -DESP_PLATFORM=1 -DIDF_TARGET=esp32p4 -DCCACHE_ENABLE=0 C:\Dpan\esp32code\esp32-p4-platform\examples\esp-idf\12_simple_video_server
+CMake Error at CMakeLists.txt:12 (esptool_py_flash_to_partition):
+  Unknown CMake command "esptool_py_flash_to_partition".
+
+
