@@ -1,0 +1,21 @@
+idf_component_register(
+    SRCS
+        "src/ai_scale_perception.c"
+        "src/perception_camera.c"
+        "src/perception_bridge.c"
+        "src/food_yolo.cpp"
+        "src/hx711.c"
+    INCLUDE_DIRS
+        "include"
+    REQUIRES
+        esp_timer
+        esp_driver_gpio
+        esp_psram
+        example_video_common
+        esp_video
+        esp-dl
+    PRIV_REQUIRES
+        esp_system
+        esp_common
+)
+

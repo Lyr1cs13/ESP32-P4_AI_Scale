@@ -19,12 +19,24 @@
 #include "demos/lv_demos.h"
 #include "HAL/lv_drv/lv_drv.h"
 #include "nutrition_app.h"
+#include "ai_scale_perception.h"
 
 static const char *TAG = "dsi-example";
 
 #if CONFIG_EXAMPLE_MONITOR_REFRESH_BY_GPIO
 #define EXAMPLE_PIN_NUM_REFRESH_MONITOR         20  // Monitor the Refresh Rate by toggling the GPIO
 #endif
+
+static void perception_foods_updated(const char *const names[],
+                                     const float weights_g[],
+                                     size_t count,
+                                     void *user_ctx)
+{
+    (void)user_ctx;
+    if (!nutrition_update_ingredients_from_names(names, weights_g, count)) {
+        ESP_LOGW(TAG, "ignored perception food update");
+    }
+}
 
 
 #if CONFIG_EXAMPLE_MONITOR_REFRESH_BY_GPIO
@@ -97,6 +109,11 @@ void app_main(void)
     example_bsp_init_refresh_monitor_io();
 #endif
 
+    esp_err_t perception_ret = ai_scale_perception_prepare_camera();
+    if (perception_ret != ESP_OK) {
+        ESP_LOGW(TAG, "perception camera pipeline not ready: %s", esp_err_to_name(perception_ret));
+    }
+
     bsp_display_cfg_t cfg = {
     .lvgl_port_cfg = ESP_LVGL_PORT_INIT_CONFIG(),
     .buffer_size = BSP_LCD_DRAW_BUFF_SIZE,
@@ -110,5 +127,13 @@ void app_main(void)
    // i2c_scanner();
     lv_display_t *disp = lvgl_port_init_with_display_init(&cfg);
     nutrition_lvgl_ui(disp);
+
+    ai_scale_perception_config_t perception_cfg = {
+        .foods_updated_cb = perception_foods_updated,
+        .user_ctx = NULL,
+        .enable_weight_sensor = true,
+        .enable_camera_yolo = perception_ret == ESP_OK,
+    };
+    ESP_ERROR_CHECK(ai_scale_perception_start(&perception_cfg));
     
 }

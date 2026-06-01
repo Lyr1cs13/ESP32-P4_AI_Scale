@@ -39,7 +39,7 @@ idf_component_register(
     "."
     "HAL/"
     REQUIRES "esp_lcd" 
-    PRIV_REQUIRES "driver"
+    PRIV_REQUIRES "driver" "perception"
     )
 
 if(NOT CMAKE_SCRIPT_MODE_FILE)

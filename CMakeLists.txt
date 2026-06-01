@@ -1,4 +1,11 @@
 cmake_minimum_required(VERSION 3.16)
 
+set(EXTRA_COMPONENT_DIRS
+    "${CMAKE_CURRENT_LIST_DIR}/../esp-dl/esp-dl"
+    "${CMAKE_CURRENT_LIST_DIR}/../esp-dl/tools/dl_fft")
+
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(ESP32P4-IDF_ST7701-MIPI-1LANE_480X640_TOUCH-CST826_LVGL)
+
+set(yolo_model_file "${CMAKE_CURRENT_LIST_DIR}/models/food_yolo.espdl")
+esptool_py_flash_to_partition(flash "yolo_model" "${yolo_model_file}")

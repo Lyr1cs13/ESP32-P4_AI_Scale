@@ -1,0 +1,47 @@
+menu "AI Scale Perception"
+
+    config AI_SCALE_CAMERA_VIDEO_BUFFER_NUMBER
+        int "Camera video buffer number"
+        default 2
+        range 2 4
+
+    config AI_SCALE_HX711_SCALE
+        int "HX711 scale factor"
+        default 380
+
+    config AI_SCALE_HX711_AVG_SAMPLES
+        int "HX711 average samples"
+        default 10
+        range 1 20
+
+    config AI_SCALE_WEIGHT_POLL_INTERVAL_MS
+        int "Weight poll interval ms"
+        default 100
+        range 20 1000
+
+    config AI_SCALE_WEIGHT_CHANGE_THRESHOLD_G
+        int "Stable weight change threshold g"
+        default 15
+        range 1 1000
+
+    config AI_SCALE_WEIGHT_STABLE_DELTA_G
+        int "Stable weight window g"
+        default 5
+        range 1 100
+
+    config AI_SCALE_WEIGHT_STABLE_COUNT
+        int "Stable windows before capture"
+        default 2
+        range 1 10
+
+    config AI_SCALE_TRIGGER_COOLDOWN_MS
+        int "Weight trigger cooldown ms"
+        default 2500
+        range 200 10000
+
+    config AI_SCALE_AI_CAPTURE_TIMEOUT_MS
+        int "AI capture timeout ms"
+        default 1000
+        range 100 5000
+
+endmenu
