@@ -38,6 +38,20 @@ static void perception_foods_updated(const char *const names[],
     }
 }
 
+#if CONFIG_AI_SCALE_RUN_MODE_PERCEPTION_ONLY
+static void perception_foods_logged(const char *const names[],
+                                    const float weights_g[],
+                                    size_t count,
+                                    void *user_ctx)
+{
+    (void)user_ctx;
+    ESP_LOGI(TAG, "perception result: %u food class(es)", (unsigned)count);
+    for (size_t i = 0; i < count; ++i) {
+        ESP_LOGI(TAG, "  %s %.1f g", names[i], weights_g[i]);
+    }
+}
+#endif
+
 
 #if CONFIG_EXAMPLE_MONITOR_REFRESH_BY_GPIO
 static bool example_monitor_refresh_rate(esp_lcd_panel_handle_t panel, esp_lcd_dpi_panel_event_data_t *edata, void *user_ctx)
@@ -102,18 +116,8 @@ void i2c_scanner(void)
     i2c_del_master_bus(bus_handle);
 }
 
-
-void app_main(void)
+static lv_display_t *start_display_and_nutrition_ui(void)
 {
-#if CONFIG_EXAMPLE_MONITOR_REFRESH_BY_GPIO
-    example_bsp_init_refresh_monitor_io();
-#endif
-
-    esp_err_t perception_ret = ai_scale_perception_prepare_camera();
-    if (perception_ret != ESP_OK) {
-        ESP_LOGW(TAG, "perception camera pipeline not ready: %s", esp_err_to_name(perception_ret));
-    }
-
     bsp_display_cfg_t cfg = {
     .lvgl_port_cfg = ESP_LVGL_PORT_INIT_CONFIG(),
     .buffer_size = BSP_LCD_DRAW_BUFF_SIZE,
@@ -123,17 +127,49 @@ void app_main(void)
         .buff_spiram = false,
         .sw_rotate = false,
     }};
-    // static esp_lcd_panel_handle_t mipi_dpi_panel = NULL;
-   // i2c_scanner();
+
     lv_display_t *disp = lvgl_port_init_with_display_init(&cfg);
     nutrition_lvgl_ui(disp);
+    return disp;
+}
+
+static esp_err_t start_perception_pipeline(ai_scale_foods_updated_cb_t callback)
+{
+    esp_err_t perception_ret = ai_scale_perception_prepare_camera();
+    if (perception_ret != ESP_OK) {
+        ESP_LOGE(TAG, "perception camera pipeline not ready: %s", esp_err_to_name(perception_ret));
+        return perception_ret;
+    }
 
     ai_scale_perception_config_t perception_cfg = {
-        .foods_updated_cb = perception_foods_updated,
+        .foods_updated_cb = callback,
         .user_ctx = NULL,
         .enable_weight_sensor = true,
-        .enable_camera_yolo = perception_ret == ESP_OK,
+        .enable_camera_yolo = true,
     };
-    ESP_ERROR_CHECK(ai_scale_perception_start(&perception_cfg));
-    
+    return ai_scale_perception_start(&perception_cfg);
+}
+
+
+void app_main(void)
+{
+#if CONFIG_EXAMPLE_MONITOR_REFRESH_BY_GPIO
+    example_bsp_init_refresh_monitor_io();
+#endif
+
+#if CONFIG_AI_SCALE_RUN_MODE_PERCEPTION_ONLY
+    ESP_LOGI(TAG, "run mode: perception only");
+    ESP_LOGI(TAG, "pass criteria: camera ready, HX711 ready, YOLO waits for trigger, then logs Stored item/perception result");
+    ESP_ERROR_CHECK(start_perception_pipeline(perception_foods_logged));
+#elif CONFIG_AI_SCALE_RUN_MODE_DISPLAY_NUTRITION_ONLY
+    ESP_LOGI(TAG, "run mode: display and nutrition only");
+    ESP_LOGI(TAG, "pass criteria: three-page UI works, serial food input refreshes page 1, page 3 logs NutriCook inference time");
+    start_display_and_nutrition_ui();
+#else
+    ESP_LOGI(TAG, "run mode: full AI scale");
+    ESP_LOGI(TAG, "pass criteria: perception result refreshes page 1, cooking selection triggers page 3 nutrition result");
+    start_display_and_nutrition_ui();
+    ESP_ERROR_CHECK(start_perception_pipeline(perception_foods_updated));
+#endif
+     
 }

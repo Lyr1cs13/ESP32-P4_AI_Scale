@@ -1,3 +1,30 @@
+menu "AI Scale Run Mode"
+    choice AI_SCALE_RUN_MODE
+        prompt "Application run mode"
+        default AI_SCALE_RUN_MODE_FULL
+        help
+            Select which subsystem starts after boot. This is used for staged
+            bring-up before running the full one-board AI scale.
+
+        config AI_SCALE_RUN_MODE_PERCEPTION_ONLY
+            bool "Perception only: camera + HX711 + YOLO"
+            help
+                Start only the perception pipeline. Use this when validating
+                food recognition and weight capture without the touch display.
+
+        config AI_SCALE_RUN_MODE_DISPLAY_NUTRITION_ONLY
+            bool "Display and nutrition only: touch UI + NutriCook"
+            help
+                Start only the LVGL UI and nutrition inference. Use serial
+                input to simulate detected foods.
+
+        config AI_SCALE_RUN_MODE_FULL
+            bool "Full AI scale: perception + touch UI + NutriCook"
+            help
+                Start all subsystems and connect perception results to the UI.
+    endchoice
+endmenu
+
 menu "DSI_DEMO Configuration"
     config EXAMPLE_USE_DMA2D_COPY_FRAME
         bool "Use DMA2D to copy draw buffer to frame buffer"

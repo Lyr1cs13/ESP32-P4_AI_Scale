@@ -1,75 +1,99 @@
 # AI-Scale-OH
 
-AI-Scale-OH 是基于 ESP32-P4、480x640 MIPI 触控屏、摄像头、HX711 重量传感器、YOLO 食物识别模型和 NutriCook 营养评估模型的一体化 AI 营养秤工程。
-
-当前工程把原本独立的感知侧和营养显示侧合并到同一块 ESP32-P4 板端运行：
+AI-Scale-OH 是基于 ESP32-P4 的一体化 AI 营养秤工程，目标是在同一块板端完成：
 
 ```text
-HX711称重 -> 重量稳定触发 -> 摄像头采一帧 -> YOLO识别食物
-        -> 聚合食物种类和重量 -> 屏幕选择烹饪方式
-        -> NutriCook本地推理 -> 屏幕显示营养结果
+HX711 称重 + 摄像头采图 + YOLO 食物识别
+        -> 屏幕选择烹饪方式
+        -> NutriCook 本地营养模型推理
+        -> 触控屏显示热量和主要营养信息
 ```
 
-## 当前功能
+当前工程支持分阶段验证，也支持完整单板运行。
 
-- 480x640 MIPI 触控屏三页交互：
-  - 页面 1：当前秤上食材和重量。
-  - 页面 2：选择烹饪方式，包含“不烹饪”。
-  - 页面 3：显示热量、成品重量、蛋白质、脂肪、碳水和供能占比。
-- HX711 重量稳定检测。
-- 摄像头单帧采集，不保留网页视频流。
-- YOLO 食物识别模型通过独立 `yolo_model` 分区加载。
-- NutriCook 营养模型打包进 app 固件，运行时直接映射。
-- 感知结果自动调用营养侧接口刷新 UI。
-- 串口模拟输入仍保留，便于没有接传感器时快速验证。
-- 完整 11 项营养结果保存在设备端，预留给后续上云模块读取。
+## 运行模式
+
+运行模式通过 `idf.py menuconfig` 切换：
+
+```text
+AI Scale Run Mode
+  Application run mode
+```
+
+三种模式如下。
+
+| 模式 | 用途 | 跑通现象 |
+|---|---|---|
+| `Perception only` | 只验证摄像头、HX711、YOLO | 串口出现 `camera ready`、`HX711 ready`、`YOLO capture task started`；放入食材并稳定后出现 `Stored item` 和 `perception result` |
+| `Display and nutrition only` | 只验证触摸屏、UI、NutriCook | 屏幕三页可滑动；串口输入食材后第一页刷新；选择烹饪方式后第三页显示热量和营养结果；串口出现 `prediction inference time` |
+| `Full AI scale` | 完整整机模式 | 感知侧识别和称重结果自动刷新第一页；用户选择烹饪方式；第三页显示对应营养结果 |
+
+默认是 `Full AI scale`。
+
+如果只想快速改配置：
+
+```powershell
+idf.py menuconfig
+idf.py build
+idf.py -p COM5 flash monitor
+```
+
+## 串口模拟食材
+
+在 `Display and nutrition only` 或完整模式下，可以用串口输入模拟感知侧结果：
+
+```text
+chicken:150,potato:120,carrot:60
+beef:120,tomato:80,onion:30
+fish:200,ginger:10,garlic:8
+tofu:150,cabbage:100
+```
+
+规则：
+
+- 食材名使用英文。
+- 重量单位固定为 g，不需要写单位。
+- 多个食材用 `,` 或 `;` 分隔。
+- 食材名和重量可以用 `:`、`=` 或空格分隔。
+- 单次最多 4 种食材。
 
 ## 工程结构
 
 ```text
 main/
-  main.c                         应用装配入口，只负责初始化屏幕、注册感知回调、启动模块
+  main.c
+    应用装配入口，根据运行模式启动感知侧、显示营养侧或完整工程。
 
 components/board_display/
-  HAL/                           MIPI DSI 屏幕、触控、I2C、PCA9536 等板级显示驱动
+  HAL/
+    MIPI DSI 屏幕、触摸、I2C、PCA9536 等板级显示驱动。
 
 components/nutrition_ui/
-  include/nutrition_app.h        营养 UI 对外接口
-  src/nutrition_app.cpp          三页触控 UI、串口模拟输入、NutriCook 调用
-  src/nutricook_ui_font_16.c     中文字体
+  include/nutrition_app.h
+  src/nutrition_app.cpp
+  src/nutricook_ui_font_16.c
+    三页触控 UI、中文字体、串口模拟输入、营养结果显示。
 
 components/nutrition_model/
-  include/nutricook_inference.hpp NutriCook 推理接口
-  src/nutricook_inference.cpp     NutriCook 本地推理
-  src/nutricook_raw_table.hpp     原始营养表
+  include/nutricook_inference.hpp
+  src/nutricook_inference.cpp
+  src/nutricook_raw_table.hpp
+    NutriCook 营养模型推理和模型二进制表加载。
 
 components/perception/
-  include/ai_scale_perception.h   感知组件公开接口
-  src/perception_camera.c         摄像头单帧采集、HX711触发、任务启动
-  src/food_yolo.cpp               YOLO模型加载、识别、结果记录
-  src/perception_bridge.c         食材聚合结果发布给营养侧
-  src/hx711.c                     HX711驱动
+  include/ai_scale_perception.h
+  src/perception_camera.c
+  src/food_yolo.cpp
+  src/perception_bridge.c
+  src/hx711.c
+    摄像头、YOLO、HX711、感知结果聚合与对外回调。
 
 models/
-  food_yolo.espdl                 食物识别模型，烧录到 yolo_model 分区
+  food_yolo.espdl
+    当前占位/验证用 YOLO 模型，烧录到 yolo_model 分区。后续真实模型可替换此文件。
 ```
 
-## RTOS 调度
-
-当前采用事件驱动，不做连续视频流，避免摄像头、YOLO、LVGL 和 NutriCook 抢资源。
-
-| 任务 | 职责 | 优先级 | 说明 |
-|---|---|---:|---|
-| LVGL | 触控和屏幕刷新 | 驱动默认 | 感知任务不直接操作 LVGL 对象 |
-| `weight_sensor` | HX711称重、稳定判断 | 3 | 100ms 周期，默认 GPIO22/GPIO23 |
-| `food_yolo` | YOLO 推理 | 5 | 固定 Core 1，队列长度 1，避免推理堆积 |
-| `perception_bridge` | 聚合结果转给营养侧 | 3 | 通过回调调用营养侧接口 |
-| `nutrition_serial` | 串口模拟输入 | 4 | 调试入口 |
-| `nutrition_infer` | NutriCook 推理 | 5 | 仅在结果页需要时触发 |
-
-YOLO 推理期间会设置 busy 标记，新的重量稳定事件会被跳过，避免最新帧缓冲被覆盖。NutriCook 推理较轻，只在烹饪方式或食材变化后重新计算。
-
-## Flash 分区
+## 分区
 
 当前按 32MB Flash 设计：
 
@@ -81,57 +105,7 @@ yolo_model, data, spiffs,          , 0x600000
 storage,    data, spiffs,          , 0x3E0000
 ```
 
-YOLO 模型单独烧录到 `0x1620000`，后续替换识别模型不需要改 NutriCook 代码。
-
-## 串口模拟输入
-
-没有接入传感器时，可以通过串口输入：
-
-```text
-chicken:150,potato:120,carrot:60
-beef:120,tomato:80,onion:30
-fish:200,ginger:10,garlic:8
-tofu:150,cabbage:100
-```
-
-格式要求：
-
-- 食材名使用英文。
-- 重量单位固定为 g。
-- 多个食材用 `,` 或 `;` 分隔。
-- 食材名和重量可用 `:`、`=` 或空格分隔。
-- 单次最多 4 种食材。
-
-## 支持食材
-
-```text
-apple, banana, beef, bell_pepper, cabbage, carrot, cauliflower,
-chicken, cucumber, egg, eggplant, fish, garlic, ginger, grape,
-kiwi, kumquat, lemon, onion, orange, peach, pepper, pineapple,
-pork, potato, shrimp, small_pepper, strawberry, tofu, tomato,
-watermelon
-```
-
-## 支持烹饪方式
-
-```text
-raw, boil, braise, deep_fry, pan_fry, roast, steam, stir_fry
-```
-
-`raw` 表示不烹饪。
-
-## 构建与烧录
-
-首次从复制工程构建时，建议删除旧 build 缓存：
-
-```powershell
-cd D:\Espressif\App\AI-Scale-OH
-idf.py fullclean
-idf.py build
-idf.py -p COM5 flash monitor
-```
-
-当前构建生成的烧录布局为：
+构建后的烧录布局：
 
 ```text
 0x2000     bootloader.bin
@@ -140,24 +114,43 @@ idf.py -p COM5 flash monitor
 0x1620000  models/food_yolo.espdl
 ```
 
-日常小改可直接：
+后续 YOLO 模型变大时，优先调整 `partitions.csv` 的 `yolo_model` 分区大小。
+
+## 构建
 
 ```powershell
+cd D:\Espressif\App\AI-Scale-OH
 idf.py build
 idf.py -p COM5 flash monitor
 ```
 
-不要日常使用 `erase-flash`。普通 `flash` 只写必要区域。
+日常开发不需要频繁 `erase-flash`。普通 `flash` 只会写入需要更新的区域。
 
-## 模型说明
+## 对接说明
 
-NutriCook 是轻量营养估算模型，不等同于精确营养检测。当前部署没有对 NutriCook 做量化、剪枝或近似替代，只是把文本模型离线打包成二进制树表，因此部署方式本身不会额外损失模型精度。
+感知侧最终只需要把识别出的食材名和对应重量传给营养侧：
 
-实际结果主要受以下因素影响：
+```c
+nutrition_update_ingredients_from_names(names, weights_g, count);
+```
 
-- 食物识别准确率。
-- HX711 标定与称重误差。
-- 食材数据库和训练数据质量。
-- 烹饪方式被简化建模。
-- 真实烹饪中水分、油脂、调料吸收差异。
+当前完整模式已经通过 `components/perception/src/perception_bridge.c` 做了桥接：
 
+```text
+food_result_get_class_totals()
+        -> perception_bridge
+        -> nutrition_update_ingredients_from_names()
+        -> UI 和 NutriCook 重新计算
+```
+
+感知侧模型后续替换时，保持输出食材英文名和重量即可，不需要改 NutriCook 模型。
+
+## 回退点
+
+本地标签：
+
+```text
+before-run-mode-switch
+```
+
+如需回到加入运行模式开关之前的组件化版本，可使用该标签定位。
