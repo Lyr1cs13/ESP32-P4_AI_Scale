@@ -1,58 +1,9 @@
-﻿set(nutricook_models
-    "../nutricook/models/lgbm_cooked_weight_g.txt"
-    "../nutricook/models/lgbm_cooked_energy_kcal.txt"
-    "../nutricook/models/lgbm_cooked_protein_g.txt"
-    "../nutricook/models/lgbm_cooked_fat_g.txt"
-    "../nutricook/models/lgbm_cooked_carbohydrate_g.txt"
-    "../nutricook/models/lgbm_cooked_sodium_mg.txt"
-    "../nutricook/models/lgbm_cooked_cholesterol_mg.txt"
-    "../nutricook/models/lgbm_cooked_vitamin_c_mg.txt"
-    "../nutricook/models/lgbm_cooked_calcium_mg.txt"
-    "../nutricook/models/lgbm_cooked_iron_mg.txt"
-    "../nutricook/models/lgbm_cooked_potassium_mg.txt")
-
-set(packed_nutricook_model "${CMAKE_CURRENT_BINARY_DIR}/nutricook_models.bin")
-
 idf_component_register(
-    SRCS "main.c"
-    "nutrition_app.cpp"
-    "nutricook_inference.cpp"
-    "nutricook_ui_font_16.c"
-    "lvgl_demo_ui.c"
-    "HAL/esp_lcd_dsi/esp_lcd_dsi.c"
-    "HAL/display/ST7701S/st7701s.c"
-    "HAL/display/RM69A10/rm69a10.c"
-    "HAL/display/test_lcd/test_lcd.c"    
-    "HAL/lv_drv/lv_drv.c"  
-    "HAL/I2C/I2c_drv.c"                 
-    "HAL/PCA9536/pca9536.c"
-    INCLUDE_DIRS 
-    # "."
-    # "HAL/esp_lcd_dsi/"
-    # "HAL/display/"
-    # # "HAL/display/ST7701S/"
-    # # "HAL/display/RM69A10/"
-    # # "HAL/display/test_lcd/"
-    # "HAL/PCA9536/"
-    # "HAL/lv_drv/"
-    # "HAL/I2C/" 
-    "."
-    "HAL/"
-    REQUIRES "esp_lcd" 
-    PRIV_REQUIRES "driver" "perception"
-    )
-
-if(NOT CMAKE_SCRIPT_MODE_FILE)
-    add_custom_command(
-        OUTPUT "${packed_nutricook_model}"
-        COMMAND ${PYTHON} "${CMAKE_CURRENT_LIST_DIR}/../tools/pack_nutricook_models.py"
-                "${CMAKE_CURRENT_LIST_DIR}/../nutricook/models"
-                "${packed_nutricook_model}"
-        DEPENDS ${nutricook_models} "${CMAKE_CURRENT_LIST_DIR}/../tools/pack_nutricook_models.py"
-        VERBATIM)
-    add_custom_target(pack_nutricook_models DEPENDS "${packed_nutricook_model}")
-    add_dependencies(${COMPONENT_LIB} pack_nutricook_models)
-    target_add_binary_data(${COMPONENT_LIB} "${packed_nutricook_model}" BINARY)
-endif()
-
+    SRCS
+        "main.c"
+    REQUIRES
+        board_display
+        nutrition_ui
+        perception
+)
 

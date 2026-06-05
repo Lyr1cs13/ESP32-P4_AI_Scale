@@ -256,6 +256,6 @@ direct_dependencies:
 - espressif/i2c_bus
 - idf
 - lvgl/lvgl
-manifest_hash: c1713b80bc87cd12a2fc1fff895d98af79f8b8cfec2c5ab015bbbcdeea29f131
+manifest_hash: 1441eea483d77b1fa9a051f5c92057e7b7ae796ffd6384fd990c95bd932c6a0e
 target: esp32p4
 version: 2.0.0

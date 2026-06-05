@@ -1,0 +1,23 @@
+idf_component_register(
+    SRCS
+        "HAL/esp_lcd_dsi/esp_lcd_dsi.c"
+        "HAL/display/ST7701S/st7701s.c"
+        "HAL/display/RM69A10/rm69a10.c"
+        "HAL/display/test_lcd/test_lcd.c"
+        "HAL/lv_drv/lv_drv.c"
+        "HAL/I2C/I2c_drv.c"
+        "HAL/PCA9536/pca9536.c"
+    INCLUDE_DIRS
+        "."
+        "HAL"
+    REQUIRES
+        esp_lcd
+        driver
+        esp_driver_gpio
+        esp_driver_i2c
+        espressif__esp_lvgl_port
+        espressif__i2c_bus
+        espressif__esp_lcd_touch_gt911
+        espressif__esp_lcd_touch_cst816s
+)
+
