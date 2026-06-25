@@ -38,6 +38,7 @@ tools/pc_image_probe.py
 flasher_args.json # Generated in build directory
 sdkconfig
 sdkconfig.old
+dependencies.lock
 
 # ESP-IDF dependencies
 # For older versions or manual component management

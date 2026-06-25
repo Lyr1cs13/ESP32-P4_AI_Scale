@@ -89,7 +89,7 @@ static lv_obj_t *create_option_button(lv_obj_t *parent, const cooking_option_t *
     lv_obj_t *icon = lv_label_create(btn);
     lv_label_set_text(icon, opt->icon);
     lv_obj_set_style_text_color(icon, ACCENT_COLOR, 0);
-    lv_obj_set_style_text_font(icon, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_text_font(icon, &lv_font_montserrat_22, 0);
     lv_obj_align(icon, LV_ALIGN_TOP_LEFT, 12, 10);
 
     lv_obj_t *name = lv_label_create(btn);
