@@ -25,6 +25,7 @@ runs/
 work/
 *.o
 *.a
+!third_party/esp-dl/esp-dl/fbs_loader/lib/esp32p4/libfbs_model.a
 *.out
 *.exe # For any host-side utilities compiled on Windows
 *.pt
