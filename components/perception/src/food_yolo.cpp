@@ -47,6 +47,7 @@ static constexpr int GRID2 = 5;
 static constexpr int NUM_BOXES = GRID0 * GRID0 + GRID1 * GRID1 + GRID2 * GRID2;
 static constexpr int INFERENCE_QUEUE_LEN = 1;
 static constexpr int FOOD_ITEM_BUFFER_LEN = 64;
+static constexpr float ZERO_WEIGHT_G = 8.0f;
 static const char *SCORE_OUTPUT_NAMES[3] = {
     "/model.23/cv3.0/cv3.0.2/Conv_output_0",
     "/model.23/cv3.1/cv3.1.2/Conv_output_0",
@@ -164,6 +165,101 @@ static void init_result_store()
     }
 }
 
+static float class_total_sum_locked()
+{
+    float sum = 0.0f;
+    for (int i = 0; i < NUM_CLASSES; ++i) {
+        if (s_class_totals[i].total_weight_g > 0.0f) {
+            sum += s_class_totals[i].total_weight_g;
+        }
+    }
+    return sum;
+}
+
+static void clear_results_locked()
+{
+    std::memset(s_item_buffer, 0, sizeof(s_item_buffer));
+    s_item_write_index = 0;
+    s_item_count = 0;
+    for (int i = 0; i < NUM_CLASSES; ++i) {
+        s_class_totals[i].count = 0;
+        s_class_totals[i].total_weight_g = 0.0f;
+    }
+}
+
+static void reconcile_totals_to_scale_locked(float total_weight_g)
+{
+    if (total_weight_g <= ZERO_WEIGHT_G) {
+        clear_results_locked();
+        return;
+    }
+
+    const float sum = class_total_sum_locked();
+    if (sum <= 0.0f) {
+        return;
+    }
+
+    const float scale = total_weight_g / sum;
+    for (int i = 0; i < NUM_CLASSES; ++i) {
+        if (s_class_totals[i].total_weight_g > 0.0f) {
+            s_class_totals[i].total_weight_g *= scale;
+            if (s_class_totals[i].total_weight_g < 0.5f) {
+                s_class_totals[i].total_weight_g = 0.0f;
+                s_class_totals[i].count = 0;
+            }
+        }
+    }
+}
+
+static void subtract_weight_locked(float weight_g)
+{
+    float remaining = weight_g;
+    if (remaining <= 0.0f) {
+        return;
+    }
+
+    for (int step = 1; step <= s_item_count && remaining > 0.0f; ++step) {
+        const int index = (s_item_write_index - step + FOOD_ITEM_BUFFER_LEN) % FOOD_ITEM_BUFFER_LEN;
+        const int category = s_item_buffer[index].category;
+        if (category < 0 || category >= NUM_CLASSES || s_class_totals[category].total_weight_g <= 0.0f) {
+            continue;
+        }
+
+        const float take = std::min(remaining, s_class_totals[category].total_weight_g);
+        s_class_totals[category].total_weight_g -= take;
+        remaining -= take;
+        if (s_class_totals[category].total_weight_g <= 0.5f) {
+            s_class_totals[category].total_weight_g = 0.0f;
+            s_class_totals[category].count = 0;
+        }
+    }
+
+    float sum = class_total_sum_locked();
+    while (remaining > 0.0f && sum > 0.0f) {
+        bool changed = false;
+        for (int i = 0; i < NUM_CLASSES && remaining > 0.0f; ++i) {
+            if (s_class_totals[i].total_weight_g <= 0.0f) {
+                continue;
+            }
+            const float proportional_share = weight_g * s_class_totals[i].total_weight_g / sum;
+            const float share = std::min(remaining, std::min(s_class_totals[i].total_weight_g, proportional_share));
+            if (share > 0.0f) {
+                s_class_totals[i].total_weight_g -= share;
+                remaining -= share;
+                changed = true;
+            }
+            if (s_class_totals[i].total_weight_g <= 0.5f) {
+                s_class_totals[i].total_weight_g = 0.0f;
+                s_class_totals[i].count = 0;
+            }
+        }
+        if (!changed) {
+            break;
+        }
+        sum = class_total_sum_locked();
+    }
+}
+
 static void store_food_item(const inference_request_t &request, const detection_t &best)
 {
     if (!s_result_lock) {
@@ -189,8 +285,11 @@ static void store_food_item(const inference_request_t &request, const detection_
 
     if (best.category >= 0 && best.category < NUM_CLASSES) {
         s_class_totals[best.category].count++;
-        s_class_totals[best.category].total_weight_g += request.item_weight_g;
+        if (request.item_weight_g > 0.0f) {
+            s_class_totals[best.category].total_weight_g += request.item_weight_g;
+        }
     }
+    reconcile_totals_to_scale_locked(request.total_weight_g);
 
     xSemaphoreGive(s_result_lock);
 }
@@ -401,6 +500,35 @@ extern "C" esp_err_t ai_submit_latest_frame(float total_weight_g, float item_wei
     return ESP_OK;
 }
 
+extern "C" void food_result_apply_weight_delta(float total_weight_g, float delta_weight_g)
+{
+    if (!s_result_lock) {
+        return;
+    }
+    if (xSemaphoreTake(s_result_lock, portMAX_DELAY) != pdPASS) {
+        return;
+    }
+
+    if (total_weight_g <= ZERO_WEIGHT_G) {
+        ESP_LOGI(TAG, "scale is empty; clear current food snapshot");
+        clear_results_locked();
+        xSemaphoreGive(s_result_lock);
+        return;
+    }
+
+    if (delta_weight_g < 0.0f) {
+        subtract_weight_locked(-delta_weight_g);
+    }
+    reconcile_totals_to_scale_locked(total_weight_g);
+
+    ESP_LOGI(TAG,
+             "current food snapshot adjusted by %.2f g, scale total %.2f g, tracked total %.2f g",
+             delta_weight_g,
+             total_weight_g,
+             class_total_sum_locked());
+    xSemaphoreGive(s_result_lock);
+}
+
 extern "C" int food_result_get_items(food_item_record_t *items, int max_items)
 {
     if (!items || max_items <= 0 || !s_result_lock) {
@@ -431,7 +559,7 @@ extern "C" int food_result_get_class_totals(food_class_total_t *totals, int max_
 
     int out_count = 0;
     for (int i = 0; i < NUM_CLASSES && out_count < max_totals; ++i) {
-        if (s_class_totals[i].count > 0) {
+        if (s_class_totals[i].count > 0 && s_class_totals[i].total_weight_g > 0.0f) {
             totals[out_count++] = s_class_totals[i];
         }
     }
@@ -449,14 +577,8 @@ extern "C" void food_result_clear(void)
         return;
     }
 
-    std::memset(s_item_buffer, 0, sizeof(s_item_buffer));
-    s_item_write_index = 0;
-    s_item_count = 0;
     s_item_sequence = 0;
-    for (int i = 0; i < NUM_CLASSES; ++i) {
-        s_class_totals[i].count = 0;
-        s_class_totals[i].total_weight_g = 0.0f;
-    }
+    clear_results_locked();
 
     xSemaphoreGive(s_result_lock);
 }

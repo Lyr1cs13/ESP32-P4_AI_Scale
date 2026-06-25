@@ -1,12 +1,14 @@
 ﻿#include "nutricook_inference.hpp"
 
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "lvgl.h"
 
 #include <ctype.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -19,6 +21,7 @@ constexpr const char *TAG = "nutrition_ui";
 constexpr size_t kInputBufferSize = 160;
 constexpr uint32_t kScreenW = 480;
 constexpr uint32_t kScreenH = 640;
+constexpr size_t kMealRecordCapacity = 5;
 
 struct IngredientState {
     nutricook::IngredientWeight items[nutricook::kMaxIngredientsPerDish];
@@ -45,6 +48,15 @@ struct CloudNutritionRecord {
     bool valid;
 };
 
+struct MealRecord {
+    CloudNutritionRecord record;
+    int64_t started_at_us;
+    int64_t updated_at_us;
+    uint32_t revision;
+    bool valid;
+    bool closed;
+};
+
 struct MethodOption {
     const char *name_cn;
     nutricook::CookingMethod method;
@@ -69,6 +81,13 @@ nutricook::CookingMethod s_selected_method = nutricook::CookingMethod::Raw;
 InferenceState s_inference_state = InferenceState::Idle;
 CloudNutritionRecord s_cloud_record = {};
 bool s_prediction_dirty = true;
+bool s_meal_confirmed = false;
+bool s_pending_meal_commit = false;
+uint32_t s_input_revision = 0;
+uint32_t s_meal_revision = 0;
+int s_active_meal_slot = -1;
+size_t s_meal_record_count = 0;
+MealRecord s_meal_records[kMealRecordCapacity] = {};
 Page s_page = Page::Scale;
 
 lv_obj_t *s_pages[3] = {};
@@ -138,6 +157,11 @@ void set_default_ingredients()
     s_ingredients.items[2] = {nutricook::Ingredient::Carrot, 60.0f};
 }
 
+void clear_ingredients()
+{
+    memset(&s_ingredients, 0, sizeof(s_ingredients));
+}
+
 bool ingredient_from_name(const char *name, nutricook::Ingredient *ingredient)
 {
     for (int i = 0; i < static_cast<int>(nutricook::Ingredient::Count); ++i) {
@@ -202,6 +226,8 @@ bool parse_ingredient_line(char *line, IngredientState *out)
     return true;
 }
 
+const char *method_name_cn(nutricook::CookingMethod method);
+
 float total_weight(const IngredientState &state)
 {
     float total = 0.0f;
@@ -209,6 +235,66 @@ float total_weight(const IngredientState &state)
         total += state.items[i].raw_weight_g;
     }
     return total;
+}
+
+int allocate_meal_slot_locked()
+{
+    const int slot = static_cast<int>(s_meal_revision % kMealRecordCapacity);
+    ++s_meal_revision;
+    if (s_meal_record_count < kMealRecordCapacity) {
+        ++s_meal_record_count;
+    }
+    memset(&s_meal_records[slot], 0, sizeof(s_meal_records[slot]));
+    s_meal_records[slot].started_at_us = esp_timer_get_time();
+    s_meal_records[slot].updated_at_us = s_meal_records[slot].started_at_us;
+    s_meal_records[slot].revision = 1;
+    s_active_meal_slot = slot;
+    return slot;
+}
+
+void commit_current_meal_locked(const CloudNutritionRecord &record)
+{
+    if (record.input.count == 0 || !record.valid) {
+        return;
+    }
+
+    int slot = s_active_meal_slot;
+    if (slot < 0 || slot >= static_cast<int>(kMealRecordCapacity)) {
+        slot = allocate_meal_slot_locked();
+    }
+
+    MealRecord &meal = s_meal_records[slot];
+    meal.record = record;
+    meal.updated_at_us = esp_timer_get_time();
+    ++meal.revision;
+    meal.valid = true;
+    meal.closed = false;
+    s_meal_confirmed = true;
+    s_pending_meal_commit = false;
+
+    ESP_LOGI(TAG,
+             "meal slot %d saved: revision=%" PRIu32 ", foods=%u, method=%s, energy=%.1f kcal",
+             slot,
+             meal.revision,
+             static_cast<unsigned>(record.input.count),
+             method_name_cn(record.method),
+             static_cast<double>(record.prediction.cooked_energy_kcal));
+}
+
+void close_current_meal_locked()
+{
+    if (s_active_meal_slot >= 0 && s_active_meal_slot < static_cast<int>(kMealRecordCapacity)) {
+        MealRecord &meal = s_meal_records[s_active_meal_slot];
+        if (meal.valid && !meal.closed) {
+            meal.closed = true;
+            meal.updated_at_us = esp_timer_get_time();
+            ESP_LOGI(TAG, "meal slot %d closed", s_active_meal_slot);
+        }
+    }
+
+    s_active_meal_slot = -1;
+    s_meal_confirmed = false;
+    s_pending_meal_commit = false;
 }
 
 void format_one_decimal(float value, char *buffer, size_t buffer_size)
@@ -271,6 +357,7 @@ const char *method_name_cn(nutricook::CookingMethod method)
 }
 
 void show_page(Page page);
+void start_inference_if_needed();
 
 void serial_input_task(void *)
 {
@@ -290,7 +377,11 @@ void serial_input_task(void *)
                 if (parse_ingredient_line(buffer, &parsed)) {
                     lock_state();
                     s_ingredients = parsed;
+                    ++s_input_revision;
                     s_prediction_dirty = true;
+                    if (s_meal_confirmed) {
+                        s_pending_meal_commit = true;
+                    }
                     if (s_inference_state != InferenceState::Running) {
                         s_inference_state = InferenceState::Idle;
                     }
@@ -333,6 +424,27 @@ void update_method_styles()
     }
 }
 
+void confirm_current_meal()
+{
+    bool should_start = false;
+    lock_state();
+    if (s_ingredients.count > 0) {
+        s_meal_confirmed = true;
+        s_pending_meal_commit = true;
+        s_prediction_dirty = true;
+        ++s_input_revision;
+        if (s_inference_state != InferenceState::Running) {
+            s_inference_state = InferenceState::Idle;
+            should_start = true;
+        }
+    }
+    unlock_state();
+
+    if (should_start) {
+        start_inference_if_needed();
+    }
+}
+
 void start_inference_if_needed()
 {
     bool should_start = false;
@@ -348,19 +460,28 @@ void start_inference_if_needed()
             [](void *) {
                 IngredientState input = {};
                 nutricook::CookingMethod method = nutricook::CookingMethod::Raw;
+                uint32_t revision = 0;
                 lock_state();
                 input = s_ingredients;
                 method = s_selected_method;
+                revision = s_input_revision;
                 unlock_state();
 
                 nutricook::Prediction prediction = {};
                 const bool ok = nutricook::predict(input.items, input.count, method, &prediction);
 
                 lock_state();
-                if (ok) {
-                    s_cloud_record = {input, method, prediction, true};
+                if (ok && revision == s_input_revision) {
+                    CloudNutritionRecord record = {input, method, prediction, true};
+                    s_cloud_record = record;
                     s_prediction_dirty = false;
                     s_inference_state = InferenceState::Done;
+                    if (s_pending_meal_commit || s_meal_confirmed) {
+                        commit_current_meal_locked(record);
+                    }
+                } else if (ok) {
+                    s_inference_state = InferenceState::Idle;
+                    s_prediction_dirty = true;
                 } else {
                     s_inference_state = InferenceState::Failed;
                 }
@@ -394,7 +515,11 @@ void show_page(Page page)
 
 void go_next_page()
 {
+    const Page from = s_page;
     const int next = (static_cast<int>(s_page) + 1) % 3;
+    if (from == Page::Method && static_cast<Page>(next) == Page::Result) {
+        confirm_current_meal();
+    }
     show_page(static_cast<Page>(next));
 }
 
@@ -432,12 +557,19 @@ void method_event_cb(lv_event_t *e)
     MethodOption *option = static_cast<MethodOption *>(lv_event_get_user_data(e));
     lock_state();
     s_selected_method = option->method;
+    ++s_input_revision;
     s_prediction_dirty = true;
+    if (s_meal_confirmed) {
+        s_pending_meal_commit = true;
+    }
     if (s_inference_state != InferenceState::Running) {
         s_inference_state = InferenceState::Idle;
     }
     unlock_state();
     update_method_styles();
+    if (s_meal_confirmed) {
+        start_inference_if_needed();
+    }
 }
 
 lv_obj_t *make_action_button(lv_obj_t *parent, const char *text, lv_color_t bg)
@@ -755,12 +887,29 @@ void update_result_page(const CloudNutritionRecord &record)
     lv_label_set_text(s_carb_pct_label, text);
 }
 
+void clear_result_page()
+{
+    lv_label_set_text(s_result_title, "等待餐食");
+    lv_label_set_text(s_energy_label, "-- kcal");
+    lv_label_set_text(s_weight_label, "成品 -- g");
+    lv_label_set_text(s_protein_amount_label, "-- g");
+    lv_label_set_text(s_protein_pct_label, "--%");
+    lv_label_set_text(s_fat_amount_label, "-- g");
+    lv_label_set_text(s_fat_pct_label, "--%");
+    lv_label_set_text(s_carb_amount_label, "-- g");
+    lv_label_set_text(s_carb_pct_label, "--%");
+    set_arc_segment(s_arc_protein, 0, 120, kGreen);
+    set_arc_segment(s_arc_fat, 120, 240, kAmber);
+    set_arc_segment(s_arc_carb, 240, 360, kRose);
+}
+
 void ui_timer_cb(lv_timer_t *)
 {
     IngredientState ingredients = {};
     InferenceState state = InferenceState::Idle;
     CloudNutritionRecord record = {};
     bool dirty = false;
+    bool meal_confirmed = false;
     nutricook::CookingMethod method = nutricook::CookingMethod::Raw;
 
     lock_state();
@@ -768,6 +917,7 @@ void ui_timer_cb(lv_timer_t *)
     state = s_inference_state;
     record = s_cloud_record;
     dirty = s_prediction_dirty;
+    meal_confirmed = s_meal_confirmed;
     method = s_selected_method;
     unlock_state();
 
@@ -777,7 +927,14 @@ void ui_timer_cb(lv_timer_t *)
     snprintf(text, sizeof(text), "当前选择  %s", method_name_cn(method));
     lv_label_set_text(s_method_status_label, text);
 
-    if (record.valid && state != InferenceState::Running && !dirty) {
+    if ((s_page == Page::Result || meal_confirmed) && dirty && state != InferenceState::Running &&
+        ingredients.count > 0) {
+        start_inference_if_needed();
+    }
+
+    if (ingredients.count == 0) {
+        clear_result_page();
+    } else if (record.valid && state != InferenceState::Running && !dirty) {
         update_result_page(record);
     } else if (state == InferenceState::Running) {
         lv_label_set_text(s_result_title, "正在计算");
@@ -817,7 +974,21 @@ extern "C" bool nutrition_update_ingredients_from_names(const char *const names[
                                                         const float weights_g[],
                                                         size_t count)
 {
-    if (names == nullptr || weights_g == nullptr || count == 0 || count > nutricook::kMaxIngredientsPerDish) {
+    if (count == 0) {
+        lock_state();
+        clear_ingredients();
+        ++s_input_revision;
+        s_prediction_dirty = false;
+        s_inference_state = InferenceState::Idle;
+        s_cloud_record.valid = false;
+        close_current_meal_locked();
+        unlock_state();
+
+        ESP_LOGI(TAG, "updated ingredients from perception: empty scale, current meal ended");
+        return true;
+    }
+
+    if (names == nullptr || weights_g == nullptr || count > nutricook::kMaxIngredientsPerDish) {
         return false;
     }
 
@@ -842,13 +1013,21 @@ extern "C" bool nutrition_update_ingredients_from_names(const char *const names[
 
     lock_state();
     s_ingredients = parsed;
+    ++s_input_revision;
     s_prediction_dirty = true;
+    const bool should_refresh_meal = s_meal_confirmed;
+    if (should_refresh_meal) {
+        s_pending_meal_commit = true;
+    }
     if (s_inference_state != InferenceState::Running) {
         s_inference_state = InferenceState::Idle;
     }
     unlock_state();
 
     ESP_LOGI(TAG, "updated ingredients from perception: %u item(s)", static_cast<unsigned>(parsed.count));
+    if (should_refresh_meal) {
+        start_inference_if_needed();
+    }
     return true;
 }
 

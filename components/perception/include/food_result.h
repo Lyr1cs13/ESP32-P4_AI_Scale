@@ -29,6 +29,7 @@ typedef struct {
 } food_class_total_t;
 
 esp_err_t ai_submit_latest_frame(float total_weight_g, float item_weight_g);
+void food_result_apply_weight_delta(float total_weight_g, float delta_weight_g);
 int food_result_get_items(food_item_record_t *items, int max_items);
 int food_result_get_class_totals(food_class_total_t *totals, int max_totals);
 void food_result_clear(void);

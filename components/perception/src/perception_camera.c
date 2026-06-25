@@ -36,6 +36,7 @@
 #define PERCEPTION_TRIGGER_COOLDOWN_MS        CONFIG_AI_SCALE_TRIGGER_COOLDOWN_MS
 #define PERCEPTION_AI_CAPTURE_TIMEOUT_MS      CONFIG_AI_SCALE_AI_CAPTURE_TIMEOUT_MS
 #define PERCEPTION_AI_TASK_WDT_TIMEOUT_MS     20000
+#define PERCEPTION_EMPTY_WEIGHT_G             8.0f
 
 typedef struct {
     int fd;
@@ -69,6 +70,11 @@ static TaskHandle_t s_yolo_task_handle;
 static float absf_local(float value)
 {
     return value < 0.0f ? -value : value;
+}
+
+static float normalize_scale_weight(float weight_g)
+{
+    return absf_local(weight_g) <= PERCEPTION_EMPTY_WEIGHT_G ? 0.0f : weight_g;
 }
 
 static esp_err_t latest_frame_init(const perception_video_t *video)
@@ -225,6 +231,14 @@ static esp_err_t capture_frame_to_latest_buffer(void)
 
 static esp_err_t trigger_capture_from_weight(float stable_weight_g, float delta_g)
 {
+    stable_weight_g = normalize_scale_weight(stable_weight_g);
+
+    if (stable_weight_g <= 0.0f || delta_g < 0.0f) {
+        food_result_apply_weight_delta(stable_weight_g, delta_g);
+        ai_scale_perception_bridge_notify();
+        return ESP_OK;
+    }
+
     if (s_inference_busy) {
         ESP_LOGI(TAG, "YOLO busy; skip this stable weight event");
         return ESP_ERR_TIMEOUT;
@@ -264,7 +278,7 @@ static void weight_capture_trigger_task(void *arg)
     hx711_tare();
     vTaskDelay(pdMS_TO_TICKS(300));
 
-    reference_weight_g = hx711_get_units(PERCEPTION_HX711_AVG_SAMPLES);
+    reference_weight_g = normalize_scale_weight(hx711_get_units(PERCEPTION_HX711_AVG_SAMPLES));
     candidate_weight_g = reference_weight_g;
     stable_count = PERCEPTION_WEIGHT_STABLE_COUNT;
 
@@ -272,7 +286,7 @@ static void weight_capture_trigger_task(void *arg)
              PERCEPTION_HX711_DATA_GPIO, PERCEPTION_HX711_SCK_GPIO, reference_weight_g);
 
     while (true) {
-        const float current_weight_g = hx711_get_units(PERCEPTION_HX711_AVG_SAMPLES);
+        const float current_weight_g = normalize_scale_weight(hx711_get_units(PERCEPTION_HX711_AVG_SAMPLES));
         const float candidate_delta_g = absf_local(current_weight_g - candidate_weight_g);
         const float reference_delta_g = absf_local(current_weight_g - reference_weight_g);
 
@@ -294,13 +308,14 @@ static void weight_capture_trigger_task(void *arg)
 
         if (change_detected && stable_count >= PERCEPTION_WEIGHT_STABLE_COUNT) {
             const int64_t now_us = esp_timer_get_time();
-            const float stable_delta_g = absf_local(candidate_weight_g - reference_weight_g);
+            const float signed_delta_g = candidate_weight_g - reference_weight_g;
+            const float stable_delta_g = absf_local(signed_delta_g);
 
             if (stable_delta_g >= PERCEPTION_WEIGHT_CHANGE_THRESHOLD_G &&
                 (now_us - last_trigger_time_us) >= (PERCEPTION_TRIGGER_COOLDOWN_MS * 1000LL)) {
-                if (trigger_capture_from_weight(candidate_weight_g, stable_delta_g) == ESP_OK) {
+                if (trigger_capture_from_weight(candidate_weight_g, signed_delta_g) == ESP_OK) {
                     last_trigger_time_us = now_us;
-                    reference_weight_g = candidate_weight_g;
+                    reference_weight_g = normalize_scale_weight(candidate_weight_g);
                 }
             }
 

@@ -43,6 +43,8 @@ static void bridge_task(void *arg)
 
         const int total_count = food_result_get_class_totals(totals, FOOD_RESULT_MAX_CLASSES);
         if (total_count <= 0) {
+            ESP_LOGI(TAG, "publish to nutrition UI: empty scale");
+            s_foods_updated_cb(NULL, NULL, 0, s_user_ctx);
             continue;
         }
 
@@ -67,7 +69,8 @@ static void bridge_task(void *arg)
             ESP_LOGI(TAG, "publish %u food classes to nutrition UI", (unsigned)out_count);
             s_foods_updated_cb(names, weights, out_count, s_user_ctx);
         } else {
-            ESP_LOGW(TAG, "no known food class to publish to nutrition UI");
+            ESP_LOGI(TAG, "publish to nutrition UI: empty scale");
+            s_foods_updated_cb(NULL, NULL, 0, s_user_ctx);
         }
     }
 }
