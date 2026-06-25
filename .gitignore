@@ -30,14 +30,13 @@ build/
 *.map
 flasher_args.json # Generated in build directory
 sdkconfig.old
-sdkconfig
 
 # ESP-IDF dependencies
 # For older versions or manual component management
 /components/.idf/
 **/components/.idf/
-# For modern ESP-IDF component manager
-managed_components/
+# Keep managed_components in this repository so the project can be rebuilt
+# without relying on each machine to re-download ESP-IDF component-manager deps.
 # If ESP-IDF tools are installed/referenced locally to the project
 .espressif/
 

@@ -9,6 +9,7 @@
 #include "esp_check.h"
 #include "example_video_common.h"
 #include "esp_cam_sensor_xclk.h"
+#include "HAL/I2C/I2c_drv.h"
 
 #if EXAMPLE_ENABLE_MIPI_CSI_CAM_SENSOR
 static const esp_video_init_csi_config_t s_csi_config = {
@@ -194,15 +195,6 @@ static const esp_video_init_config_t s_cam_config = {
 };
 
 #if CONFIG_EXAMPLE_SCCB_I2C_INIT_BY_APP
-static const i2c_master_bus_config_t s_bus_config = {
-    .i2c_port = EXAMPLE_SCCB_I2C_PORT_INIT_BY_APP,
-    .sda_io_num = EXAMPLE_SCCB_I2C_SDA_PIN_INIT_BY_APP,
-    .scl_io_num = EXAMPLE_SCCB_I2C_SCL_PIN_INIT_BY_APP,
-    .clk_source = I2C_CLK_SRC_DEFAULT,
-    .glitch_ignore_cnt = 7,
-    .flags.enable_internal_pullup = true,
-};
-
 static i2c_master_bus_handle_t s_i2cbus_handle;
 #endif /* CONFIG_EXAMPLE_SCCB_I2C_INIT_BY_APP */
 
@@ -229,7 +221,9 @@ esp_err_t example_video_init(void)
     const esp_video_init_config_t *cam_config_ptr = &s_cam_config;
 
 #if CONFIG_EXAMPLE_SCCB_I2C_INIT_BY_APP
-    ESP_RETURN_ON_ERROR(i2c_new_master_bus(&s_bus_config, &s_i2cbus_handle), TAG, "failed to initialize i2c bus");
+    ESP_RETURN_ON_ERROR(i2c_drv_init(), TAG, "failed to initialize shared i2c bus");
+    s_i2cbus_handle = i2c_drv_get_handle();
+    ESP_RETURN_ON_FALSE(s_i2cbus_handle != NULL, ESP_ERR_INVALID_STATE, TAG, "shared i2c bus handle is null");
 
 #if EXAMPLE_ENABLE_MIPI_CSI_CAM_SENSOR
     esp_video_init_csi_config_t csi_config = s_csi_config;
@@ -339,7 +333,8 @@ failed_1:
 failed_0:
 #endif
 #if CONFIG_EXAMPLE_SCCB_I2C_INIT_BY_APP
-    i2c_del_master_bus(s_i2cbus_handle);
+    /* The I2C bus is owned by board_display and is shared with the touch panel.
+       Do not delete it here; doing so breaks LVGL touch reads after camera init failures. */
     s_i2cbus_handle = NULL;
 #endif
     return ret;
@@ -367,7 +362,7 @@ esp_err_t example_video_deinit(void)
 #endif
 
 #if CONFIG_EXAMPLE_SCCB_I2C_INIT_BY_APP
-    ESP_RETURN_ON_ERROR(i2c_del_master_bus(s_i2cbus_handle), TAG, "failed to delete i2c bus");
+    /* The shared I2C bus lifetime is managed by board_display. */
     s_i2cbus_handle = NULL;
 #endif
 

@@ -56,12 +56,18 @@ static void bridge_task(void *arg)
             }
             names[out_count] = totals[i].class_name;
             weights[out_count] = totals[i].total_weight_g;
+            ESP_LOGI(TAG,
+                     "publish to nutrition UI: %s %.2f g",
+                     names[out_count],
+                     weights[out_count]);
             ++out_count;
         }
 
         if (out_count > 0) {
             ESP_LOGI(TAG, "publish %u food classes to nutrition UI", (unsigned)out_count);
             s_foods_updated_cb(names, weights, out_count, s_user_ctx);
+        } else {
+            ESP_LOGW(TAG, "no known food class to publish to nutrition UI");
         }
     }
 }
@@ -75,4 +81,3 @@ void ai_scale_perception_bridge_start(void)
         xTaskCreate(bridge_task, "perception_bridge", 4096, NULL, 3, &s_task);
     }
 }
-

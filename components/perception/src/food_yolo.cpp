@@ -13,9 +13,11 @@
 #include "dl_math.hpp"
 #include "dl_model_base.hpp"
 #include "dl_tensor_base.hpp"
+#include "esp_check.h"
 #include "esp_err.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
+#include "esp_partition.h"
 #include "esp_timer.h"
 #include "food_result.h"
 #include "perception_internal.h"
@@ -50,6 +52,37 @@ static const char *SCORE_OUTPUT_NAMES[3] = {
     "/model.23/cv3.1/cv3.1.2/Conv_output_0",
     "/model.23/cv3.2/cv3.2.2/Conv_output_0",
 };
+
+static void log_model_partition_header()
+{
+    const esp_partition_t *partition =
+        esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_ANY, MODEL_PARTITION_LABEL);
+    if (partition == nullptr) {
+        ESP_LOGE(TAG, "model partition '%s' not found", MODEL_PARTITION_LABEL);
+        return;
+    }
+
+    uint8_t header[16] = {};
+    esp_err_t ret = esp_partition_read(partition, 0, header, sizeof(header));
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "failed to read model partition header: %s", esp_err_to_name(ret));
+        return;
+    }
+
+    ESP_LOGI(TAG,
+             "model partition '%s': offset=0x%" PRIx32 ", size=%" PRIu32 " KB, header=%02x %02x %02x %02x '%c%c%c%c'",
+             MODEL_PARTITION_LABEL,
+             partition->address,
+             partition->size / 1024,
+             header[0],
+             header[1],
+             header[2],
+             header[3],
+             header[0] >= 32 && header[0] <= 126 ? header[0] : '.',
+             header[1] >= 32 && header[1] <= 126 ? header[1] : '.',
+             header[2] >= 32 && header[2] <= 126 ? header[2] : '.',
+             header[3] >= 32 && header[3] <= 126 ? header[3] : '.');
+}
 
 static const std::array<const char *, NUM_CLASSES> CLASS_NAMES = {
     "apple",
@@ -129,88 +162,6 @@ static void init_result_store()
         s_class_totals[i].count = 0;
         s_class_totals[i].total_weight_g = 0.0f;
     }
-}
-
-static detection_t get_best_detection(const std::vector<detection_t> &results)
-{
-    detection_t best = {
-        -1,
-        0.0f,
-        0,
-        0,
-        0,
-        0,
-    };
-
-    for (const auto &res : results) {
-        if (res.score > best.score) {
-            best = res;
-        }
-    }
-
-    return best;
-}
-
-static detection_t unknown_detection()
-{
-    return {
-        -1,
-        0.0f,
-        0,
-        0,
-        0,
-        0,
-    };
-}
-
-static detection_t infer_new_detection_from_counts(const std::vector<detection_t> &results,
-                                                   const std::map<int, int> &current_class_count)
-{
-    detection_t best_by_class[NUM_CLASSES] = {};
-    int inferred_category = -1;
-    int inferred_delta = 0;
-    float inferred_score = 0.0f;
-    bool has_recorded_items = false;
-
-    for (int i = 0; i < NUM_CLASSES; ++i) {
-        best_by_class[i].category = -1;
-        best_by_class[i].score = 0.0f;
-    }
-
-    for (const auto &res : results) {
-        if (res.category >= 0 && res.category < NUM_CLASSES && res.score > best_by_class[res.category].score) {
-            best_by_class[res.category] = res;
-        }
-    }
-
-    if (s_result_lock && xSemaphoreTake(s_result_lock, portMAX_DELAY) == pdPASS) {
-        has_recorded_items = s_item_count > 0;
-        for (const auto &[category, current_count] : current_class_count) {
-            if (category < 0 || category >= NUM_CLASSES) {
-                continue;
-            }
-
-            const int recorded_count = static_cast<int>(s_class_totals[category].count);
-            const int delta_count = current_count - recorded_count;
-            if (delta_count > inferred_delta ||
-                (delta_count == inferred_delta && best_by_class[category].score > inferred_score)) {
-                inferred_category = category;
-                inferred_delta = delta_count;
-                inferred_score = best_by_class[category].score;
-            }
-        }
-        xSemaphoreGive(s_result_lock);
-    }
-
-    if (inferred_category >= 0) {
-        return best_by_class[inferred_category];
-    }
-
-    if (has_recorded_items) {
-        return unknown_detection();
-    }
-
-    return get_best_detection(results);
 }
 
 static void store_food_item(const inference_request_t &request, const detection_t &best)
@@ -393,7 +344,7 @@ static std::vector<detection_t> parse_yolo_output(dl::TensorBase *output,
     return results;
 }
 
-static void log_best_candidate(dl::TensorBase *score0, dl::TensorBase *score1, dl::TensorBase *score2)
+static detection_t best_raw_candidate(dl::TensorBase *score0, dl::TensorBase *score1, dl::TensorBase *score2)
 {
     int debug_class = -1;
     int debug_index = -1;
@@ -420,6 +371,15 @@ static void log_best_candidate(dl::TensorBase *score0, dl::TensorBase *score1, d
              debug_raw,
              debug_score,
              debug_index);
+
+    return {
+        debug_class,
+        debug_score,
+        0,
+        0,
+        0,
+        0,
+    };
 }
 
 extern "C" esp_err_t ai_submit_latest_frame(float total_weight_g, float item_weight_g)
@@ -504,12 +464,33 @@ extern "C" void food_result_clear(void)
 extern "C" void ai_inference_task(void *arg)
 {
     bool param_copy = heap_caps_get_total_size(MALLOC_CAP_SPIRAM) >= (9 * 1024 * 1024);
+    log_model_partition_header();
     dl::Model *model = new dl::Model(MODEL_PARTITION_LABEL,
                                      fbs::MODEL_LOCATION_IN_FLASH_PARTITION,
                                      0,
                                      dl::MEMORY_MANAGER_GREEDY,
                                      nullptr,
                                      param_copy);
+    if (model == nullptr || model->get_inputs().empty()) {
+        ESP_LOGE(TAG,
+                 "YOLO model failed to load from partition '%s'; perception inference task will stop, UI remains usable",
+                 MODEL_PARTITION_LABEL);
+        delete model;
+        s_yolo_task_handle = nullptr;
+        vTaskDelete(nullptr);
+        return;
+    }
+
+    const std::string input_name = model->get_inputs().begin()->first;
+    dl::TensorBase *model_input = model->get_input(input_name);
+    if (model_input == nullptr) {
+        ESP_LOGE(TAG, "YOLO model input '%s' is null; perception inference task will stop", input_name.c_str());
+        delete model;
+        s_yolo_task_handle = nullptr;
+        vTaskDelete(nullptr);
+        return;
+    }
+
     dl::image::ImagePreprocessor preprocessor(model, {0, 0, 0}, {255, 255, 255});
     preprocessor.enable_letterbox({114, 114, 114});
     init_result_store();
@@ -561,7 +542,7 @@ extern "C" void ai_inference_task(void *arg)
         dl::TensorBase score0({1, GRID0, GRID0, NUM_CLASSES}, nullptr, 0, dl::DATA_TYPE_FLOAT);
         dl::TensorBase score1({1, GRID1, GRID1, NUM_CLASSES}, nullptr, 0, dl::DATA_TYPE_FLOAT);
         dl::TensorBase score2({1, GRID2, GRID2, NUM_CLASSES}, nullptr, 0, dl::DATA_TYPE_FLOAT);
-        std::map<std::string, dl::TensorBase *> input_map = {{model->get_inputs().begin()->first, model->get_input()}};
+        std::map<std::string, dl::TensorBase *> input_map = {{input_name, model_input}};
         std::map<std::string, dl::TensorBase *> debug_outputs = {
             {SCORE_OUTPUT_NAMES[0], &score0},
             {SCORE_OUTPUT_NAMES[1], &score1},
@@ -588,7 +569,12 @@ extern "C" void ai_inference_task(void *arg)
         for (const auto &res : results) {
             class_count[res.category]++;
         }
-        detection_t best = infer_new_detection_from_counts(results, class_count);
+        detection_t best = results.empty() ? best_raw_candidate(&score0, &score1, &score2) : results.front();
+        if (best.category < 0 || best.category >= NUM_CLASSES) {
+            ESP_LOGW(TAG, "invalid best candidate; force class 0/%s", CLASS_NAMES[0]);
+            best.category = 0;
+            best.score = 0.0f;
+        }
         store_food_item(request, best);
         ai_scale_perception_bridge_notify();
         ai_scale_perception_mark_inference_idle();
@@ -605,7 +591,7 @@ extern "C" void ai_inference_task(void *arg)
         ESP_LOGI(TAG,
                  "Stored item #%u: %s, item_weight=%.2f g, total_weight=%.2f g, score=%.3f",
                  s_item_sequence,
-                 best.category >= 0 ? CLASS_NAMES[best.category] : "unknown",
+                 CLASS_NAMES[best.category],
                  request.item_weight_g,
                  request.total_weight_g,
                  best.score);
@@ -618,8 +604,6 @@ extern "C" void ai_inference_task(void *arg)
         }
         // ============================================
 
-        log_best_candidate(&score0, &score1, &score2);
-        
         for (const auto &res : results) {
             ESP_LOGI(TAG,
                      "[category: %d/%s, score: %.3f, x1: %d, y1: %d, x2: %d, y2: %d]",

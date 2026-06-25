@@ -49,11 +49,13 @@ lv_display_t *lvgl_display_port_init(const bsp_display_cfg_t *cfg)
 #else
             .sw_rotate = cfg->flags.sw_rotate, /* Only SW rotation is supported for 90° and 270° */
 #endif
-#if CONFIG_BSP_DISPLAY_LVGL_FULL_REFRESH
-            .full_refresh = true,
-#elif CONFIG_BSP_DISPLAY_LVGL_DIRECT_MODE
-            .direct_mode = true,
-#endif
+            /* This board uses a partial LVGL draw buffer (480 x 50).
+             * full_refresh/direct_mode require a full-screen buffer and will make
+             * esp_lvgl_port reject display creation. Keep partial refresh explicit
+             * so unrelated Kconfig defaults cannot break display startup.
+             */
+            .full_refresh = false,
+            .direct_mode = false,
         }
     };
 
@@ -149,7 +151,7 @@ static lv_indev_t *lvgl_touch_port_init(lv_display_t *disp)
 {
     esp_lcd_touch_handle_t tp;
     ESP_ERROR_CHECK(bsp_touch_new(NULL, &tp));
-    assert(tp);    
+    assert(tp);
 
     /* Add touch input (for selected screen) */
     const lvgl_port_touch_cfg_t touch_cfg = {
@@ -178,7 +180,3 @@ lv_display_t *lvgl_port_init_with_display_init(const bsp_display_cfg_t *cfg)
 
     return disp;
 }
-
-
-
-

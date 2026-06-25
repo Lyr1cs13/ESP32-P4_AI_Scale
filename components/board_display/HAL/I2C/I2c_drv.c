@@ -20,6 +20,7 @@ esp_err_t i2c_drv_init(void)
         .sda_io_num = BSP_I2C_SDA,
         .scl_io_num = BSP_I2C_SCL,
         .i2c_port = BSP_I2C_NUM,
+        .glitch_ignore_cnt = 7,
         .flags = {
             .enable_internal_pullup = 1,
             .allow_pd = 0,

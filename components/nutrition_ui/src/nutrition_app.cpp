@@ -833,7 +833,8 @@ extern "C" bool nutrition_update_ingredients_from_names(const char *const names[
 
         nutricook::Ingredient ingredient = nutricook::Ingredient::Apple;
         if (!ingredient_from_name(name, &ingredient)) {
-            return false;
+            ESP_LOGW(TAG, "unsupported perception ingredient '%s'; fallback to apple for UI/model update", name);
+            ingredient = nutricook::Ingredient::Apple;
         }
 
         parsed.items[parsed.count++] = {ingredient, weights_g[i]};
@@ -847,6 +848,7 @@ extern "C" bool nutrition_update_ingredients_from_names(const char *const names[
     }
     unlock_state();
 
+    ESP_LOGI(TAG, "updated ingredients from perception: %u item(s)", static_cast<unsigned>(parsed.count));
     return true;
 }
 

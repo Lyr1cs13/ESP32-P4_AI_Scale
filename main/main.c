@@ -33,6 +33,10 @@ static void perception_foods_updated(const char *const names[],
                                      void *user_ctx)
 {
     (void)user_ctx;
+    ESP_LOGI(TAG, "received perception update: %u food class(es)", (unsigned)count);
+    for (size_t i = 0; i < count; ++i) {
+        ESP_LOGI(TAG, "  -> nutrition UI: %s %.2f g", names[i], weights_g[i]);
+    }
     if (!nutrition_update_ingredients_from_names(names, weights_g, count)) {
         ESP_LOGW(TAG, "ignored perception food update");
     }
@@ -129,7 +133,17 @@ static lv_display_t *start_display_and_nutrition_ui(void)
     }};
 
     lv_display_t *disp = lvgl_port_init_with_display_init(&cfg);
-    nutrition_lvgl_ui(disp);
+    if (disp == NULL) {
+        ESP_LOGE(TAG, "display init failed");
+        return NULL;
+    }
+
+    if (lvgl_port_lock(0)) {
+        nutrition_lvgl_ui(disp);
+        lvgl_port_unlock();
+    } else {
+        ESP_LOGE(TAG, "failed to lock LVGL while creating nutrition UI");
+    }
     return disp;
 }
 
@@ -150,6 +164,20 @@ static esp_err_t start_perception_pipeline(ai_scale_foods_updated_cb_t callback)
     return ai_scale_perception_start(&perception_cfg);
 }
 
+static void start_perception_pipeline_or_warn(ai_scale_foods_updated_cb_t callback, bool keep_ui_alive)
+{
+    esp_err_t ret = start_perception_pipeline(callback);
+    if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "perception pipeline started");
+        return;
+    }
+
+    ESP_LOGE(TAG, "perception pipeline disabled: %s", esp_err_to_name(ret));
+    ESP_LOGW(TAG, "check camera module, MIPI-CSI cable direction, sensor type, and SCCB/I2C pins");
+    if (keep_ui_alive) {
+        ESP_LOGW(TAG, "fallback mode: touch UI, serial food input, and NutriCook remain available");
+    }
+}
 
 void app_main(void)
 {
@@ -160,7 +188,7 @@ void app_main(void)
 #if CONFIG_AI_SCALE_RUN_MODE_PERCEPTION_ONLY
     ESP_LOGI(TAG, "run mode: perception only");
     ESP_LOGI(TAG, "pass criteria: camera ready, HX711 ready, YOLO waits for trigger, then logs Stored item/perception result");
-    ESP_ERROR_CHECK(start_perception_pipeline(perception_foods_logged));
+    start_perception_pipeline_or_warn(perception_foods_logged, false);
 #elif CONFIG_AI_SCALE_RUN_MODE_DISPLAY_NUTRITION_ONLY
     ESP_LOGI(TAG, "run mode: display and nutrition only");
     ESP_LOGI(TAG, "pass criteria: three-page UI works, serial food input refreshes page 1, page 3 logs NutriCook inference time");
@@ -169,7 +197,7 @@ void app_main(void)
     ESP_LOGI(TAG, "run mode: full AI scale");
     ESP_LOGI(TAG, "pass criteria: perception result refreshes page 1, cooking selection triggers page 3 nutrition result");
     start_display_and_nutrition_ui();
-    ESP_ERROR_CHECK(start_perception_pipeline(perception_foods_updated));
+    start_perception_pipeline_or_warn(perception_foods_updated, true);
 #endif
      
 }
