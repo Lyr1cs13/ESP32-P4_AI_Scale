@@ -19,24 +19,30 @@
 # Build artifacts and directories
 **/build/
 build/
+flash_package/
+flash_package.zip
+runs/
+work/
 *.o
 *.a
 *.out
 *.exe # For any host-side utilities compiled on Windows
+*.pt
+tools/pc_image_probe.py
 
 # ESP-IDF specific build outputs
 *.bin
 *.elf
 *.map
 flasher_args.json # Generated in build directory
+sdkconfig
 sdkconfig.old
 
 # ESP-IDF dependencies
 # For older versions or manual component management
 /components/.idf/
 **/components/.idf/
-# Keep managed_components in this repository so the project can be rebuilt
-# without relying on each machine to re-download ESP-IDF component-manager deps.
+managed_components/
 # If ESP-IDF tools are installed/referenced locally to the project
 .espressif/
 
