@@ -1,0 +1,38 @@
+menu "AI Scale Cloud Upload"
+
+    config AI_SCALE_CLOUD_UPLOAD_ENABLED
+        bool "Enable meal record cloud upload"
+        default y
+
+    if AI_SCALE_CLOUD_UPLOAD_ENABLED
+
+        config AI_SCALE_CLOUD_WIFI_SSID
+            string "Wi-Fi SSID"
+            default ""
+
+        config AI_SCALE_CLOUD_WIFI_PASSWORD
+            string "Wi-Fi password"
+            default ""
+
+        config AI_SCALE_CLOUD_RECORD_URL
+            string "Meal record API URL"
+            default "http://106.53.198.194:8080/api/v1/weigh-in/record"
+
+        config AI_SCALE_CLOUD_USER_ID
+            int "Cloud user ID"
+            range 1 2147483647
+            default 15
+
+        config AI_SCALE_CLOUD_COOKING_TIME_MINUTES
+            int "Default cooking time in minutes"
+            range 0 1440
+            default 10
+
+        config AI_SCALE_CLOUD_RETRY_SECONDS
+            int "Retry interval after upload failure"
+            range 2 300
+            default 10
+
+    endif
+
+endmenu

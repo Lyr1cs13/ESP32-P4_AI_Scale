@@ -1,5 +1,7 @@
 ﻿#include "nutricook_inference.hpp"
 
+#include "nutrition_app.h"
+
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
@@ -88,6 +90,8 @@ uint32_t s_meal_revision = 0;
 int s_active_meal_slot = -1;
 size_t s_meal_record_count = 0;
 MealRecord s_meal_records[kMealRecordCapacity] = {};
+nutrition_meal_finalized_cb_t s_meal_finalized_callback = nullptr;
+void *s_meal_finalized_user_ctx = nullptr;
 Page s_page = Page::Scale;
 
 lv_obj_t *s_pages[3] = {};
@@ -281,20 +285,63 @@ void commit_current_meal_locked(const CloudNutritionRecord &record)
              static_cast<double>(record.prediction.cooked_energy_kcal));
 }
 
-void close_current_meal_locked()
+bool close_current_meal_locked(CloudNutritionRecord *finalized_record)
 {
     if (s_active_meal_slot >= 0 && s_active_meal_slot < static_cast<int>(kMealRecordCapacity)) {
         MealRecord &meal = s_meal_records[s_active_meal_slot];
         if (meal.valid && !meal.closed) {
             meal.closed = true;
             meal.updated_at_us = esp_timer_get_time();
+            if (finalized_record != nullptr) {
+                *finalized_record = meal.record;
+            }
             ESP_LOGI(TAG, "meal slot %d closed", s_active_meal_slot);
+            s_active_meal_slot = -1;
+            s_meal_confirmed = false;
+            s_pending_meal_commit = false;
+            return true;
         }
     }
 
     s_active_meal_slot = -1;
     s_meal_confirmed = false;
     s_pending_meal_commit = false;
+    return false;
+}
+
+void notify_meal_finalized(const CloudNutritionRecord &record)
+{
+    nutrition_meal_finalized_cb_t callback = nullptr;
+    void *user_ctx = nullptr;
+    lock_state();
+    callback = s_meal_finalized_callback;
+    user_ctx = s_meal_finalized_user_ctx;
+    unlock_state();
+    if (callback == nullptr || !record.valid) {
+        return;
+    }
+
+    nutrition_finalized_meal_t meal = {};
+    meal.ingredient_count = record.input.count;
+    for (size_t i = 0; i < record.input.count; ++i) {
+        snprintf(meal.ingredients[i], sizeof(meal.ingredients[i]), "%s",
+                 nutricook::ingredient_name(record.input.items[i].ingredient));
+        meal.raw_weights_g[i] = record.input.items[i].raw_weight_g;
+    }
+    snprintf(meal.cooking_method, sizeof(meal.cooking_method), "%s",
+             nutricook::cooking_method_name(record.method));
+    meal.outputs[0] = record.prediction.cooked_weight_g;
+    meal.outputs[1] = record.prediction.cooked_energy_kcal;
+    meal.outputs[2] = record.prediction.cooked_protein_g;
+    meal.outputs[3] = record.prediction.cooked_fat_g;
+    meal.outputs[4] = record.prediction.cooked_carbohydrate_g;
+    meal.outputs[5] = record.prediction.cooked_sodium_mg;
+    meal.outputs[6] = record.prediction.cooked_cholesterol_mg;
+    meal.outputs[7] = record.prediction.cooked_vitamin_c_mg;
+    meal.outputs[8] = record.prediction.cooked_calcium_mg;
+    meal.outputs[9] = record.prediction.cooked_iron_mg;
+    meal.outputs[10] = record.prediction.cooked_potassium_mg;
+    callback(&meal, user_ctx);
 }
 
 void format_one_decimal(float value, char *buffer, size_t buffer_size)
@@ -975,14 +1022,20 @@ extern "C" bool nutrition_update_ingredients_from_names(const char *const names[
                                                         size_t count)
 {
     if (count == 0) {
+        CloudNutritionRecord finalized_record = {};
+        bool meal_finalized = false;
         lock_state();
         clear_ingredients();
         ++s_input_revision;
         s_prediction_dirty = false;
         s_inference_state = InferenceState::Idle;
         s_cloud_record.valid = false;
-        close_current_meal_locked();
+        meal_finalized = close_current_meal_locked(&finalized_record);
         unlock_state();
+
+        if (meal_finalized) {
+            notify_meal_finalized(finalized_record);
+        }
 
         ESP_LOGI(TAG, "updated ingredients from perception: empty scale, current meal ended");
         return true;
@@ -1054,6 +1107,15 @@ extern "C" bool nutrition_copy_latest_result(float outputs[nutricook::kOutputCou
     }
     unlock_state();
     return valid;
+}
+
+extern "C" void nutrition_set_meal_finalized_callback(nutrition_meal_finalized_cb_t callback,
+                                                        void *user_ctx)
+{
+    lock_state();
+    s_meal_finalized_callback = callback;
+    s_meal_finalized_user_ctx = user_ctx;
+    unlock_state();
 }
 
 

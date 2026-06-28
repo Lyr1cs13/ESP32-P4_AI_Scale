@@ -9,9 +9,33 @@
         -> 触控屏选择烹饪方式
         -> NutriCook本地营养模型推理
         -> 屏幕显示热量、成品重量和主要营养信息
+        -> 秤面归零后通过板载ESP32-C6上传完整餐食记录
 ```
 
-当前工程已经把感知侧和显示营养侧耦合到同一ESP32-P4工程中。称重结果按当前秤面实际重量刷新，支持增重、减重和清空；烹饪方式确认后生成本次餐食记录，未归零前继续变化会覆盖更新本次记录，归零后结束本次餐食。本地保留最近5次餐食记录，后续可用于上云。
+当前工程已经把感知侧、显示营养侧和云端上传耦合到同一ESP32-P4工程中。称重结果按当前秤面实际重量刷新，支持增重、减重和清空；烹饪方式确认后生成本次餐食记录，未归零前继续变化会覆盖更新本次记录，归零后结束本次餐食并异步上云。本地保留最近5次餐食记录。
+
+## 上云逻辑
+
+ESP32-P4通过板载ESP32-C6和ESP-Hosted连接Wi-Fi。网络请求由独立的`cloud_upload`低优先级任务执行，不阻塞触控、称重、摄像头或模型推理。
+
+餐食归零结束后，设备上传食材名称、各食材原始重量、烹饪方式、成品重量、热量及全部营养模型输出。接口默认使用`user_id=15`。上传失败时保留当前队列记录并按配置间隔持续重试，HTTP 2xx后才处理下一条记录。
+
+通过`idf.py menuconfig`修改：
+
+```text
+AI Scale Cloud Upload
+  Wi-Fi SSID
+  Wi-Fi password
+  Meal record API URL
+  Cloud user ID
+```
+
+上云成功日志：
+
+```text
+cloud_upload: HTTP status=201 response=...
+cloud_upload: MEAL_UPLOAD_SUCCEEDED
+```
 
 ## 环境要求
 
@@ -106,6 +130,11 @@ components/nutrition_model/
   src/nutricook_raw_table.hpp
     NutriCook营养模型推理和二进制树表加载。
 
+components/cloud_upload/
+  include/cloud_upload.h
+  src/cloud_upload.c
+    ESP32-C6远程Wi-Fi、餐食上传队列、JSON构建、HTTP请求和失败重试。
+
 components/perception/
   include/ai_scale_perception.h
   src/perception_camera.c
@@ -137,6 +166,7 @@ models/
 - 空秤时清空当前食材快照，并通知UI结束当前餐食。
 - `perception_bridge`把食材类别和重量聚合为营养模型输入。
 - `nutrition_ui`负责触控交互、餐食生命周期、NutriCook推理和结果显示。
+- `cloud_upload`通过独立队列接收最终餐食记录，在低优先级任务中联网、上传和重试。
 
 ## 迁移注意
 

@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 
+# esp_wifi_remote 1.5.x uses this value to select its ESP-IDF 5.5 Kconfig set.
+set(ENV{ESP_IDF_VERSION} "5.5")
+
 set(EXTRA_COMPONENT_DIRS
     "${CMAKE_CURRENT_LIST_DIR}/third_party/esp-dl/esp-dl"
     "${CMAKE_CURRENT_LIST_DIR}/third_party/esp-dl/dl_fft")

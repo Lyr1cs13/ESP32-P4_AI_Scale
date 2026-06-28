@@ -18,10 +18,55 @@
 #include "lvgl.h"
 #include "demos/lv_demos.h"
 #include "HAL/lv_drv/lv_drv.h"
+#include "cloud_upload.h"
 #include "nutrition_app.h"
 #include "ai_scale_perception.h"
 
 static const char *TAG = "dsi-example";
+
+static void meal_finalized_for_cloud(const nutrition_finalized_meal_t *meal,
+                                     void *user_ctx)
+{
+    (void)user_ctx;
+    cloud_meal_record_t record = {0};
+    record.ingredient_count = meal->ingredient_count;
+    for (size_t i = 0; i < meal->ingredient_count; ++i) {
+        snprintf(record.ingredients[i], sizeof(record.ingredients[i]), "%s",
+                 meal->ingredients[i]);
+        record.raw_weights_g[i] = meal->raw_weights_g[i];
+    }
+    snprintf(record.cooking_method, sizeof(record.cooking_method), "%s",
+             meal->cooking_method);
+    record.cooked_weight_g = meal->outputs[0];
+    record.cooked_energy_kcal = meal->outputs[1];
+    record.cooked_protein_g = meal->outputs[2];
+    record.cooked_fat_g = meal->outputs[3];
+    record.cooked_carbohydrate_g = meal->outputs[4];
+    record.cooked_sodium_mg = meal->outputs[5];
+    record.cooked_cholesterol_mg = meal->outputs[6];
+    record.cooked_vitamin_c_mg = meal->outputs[7];
+    record.cooked_calcium_mg = meal->outputs[8];
+    record.cooked_iron_mg = meal->outputs[9];
+    record.cooked_potassium_mg = meal->outputs[10];
+    if (!cloud_upload_submit(&record)) {
+        ESP_LOGE(TAG, "failed to queue finalized meal for cloud upload");
+    }
+}
+
+static void start_cloud_upload_or_warn(void)
+{
+#if CONFIG_AI_SCALE_CLOUD_UPLOAD_ENABLED
+    const esp_err_t err = cloud_upload_start();
+    if (err == ESP_OK) {
+        nutrition_set_meal_finalized_callback(meal_finalized_for_cloud, NULL);
+        ESP_LOGI(TAG, "cloud uploader started; finalized meals will be uploaded");
+    } else {
+        ESP_LOGE(TAG, "cloud uploader disabled at runtime: %s", esp_err_to_name(err));
+    }
+#else
+    ESP_LOGW(TAG, "cloud uploader disabled by configuration");
+#endif
+}
 
 #if CONFIG_EXAMPLE_MONITOR_REFRESH_BY_GPIO
 #define EXAMPLE_PIN_NUM_REFRESH_MONITOR         20  // Monitor the Refresh Rate by toggling the GPIO
@@ -193,10 +238,12 @@ void app_main(void)
     ESP_LOGI(TAG, "run mode: display and nutrition only");
     ESP_LOGI(TAG, "pass criteria: three-page UI works, serial food input refreshes page 1, page 3 logs NutriCook inference time");
     start_display_and_nutrition_ui();
+    start_cloud_upload_or_warn();
 #else
     ESP_LOGI(TAG, "run mode: full AI scale");
     ESP_LOGI(TAG, "pass criteria: perception result refreshes page 1, cooking selection triggers page 3 nutrition result");
     start_display_and_nutrition_ui();
+    start_cloud_upload_or_warn();
     start_perception_pipeline_or_warn(perception_foods_updated, true);
 #endif
      

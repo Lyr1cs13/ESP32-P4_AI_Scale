@@ -3,7 +3,7 @@ idf_component_register(
         "main.c"
     REQUIRES
         board_display
+        cloud_upload
         nutrition_ui
         perception
 )
-
