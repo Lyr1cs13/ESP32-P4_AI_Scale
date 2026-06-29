@@ -420,6 +420,16 @@ void serial_input_task(void *)
         if (ch == '\r' || ch == '\n') {
             if (len > 0) {
                 buffer[len] = '\0';
+                char command[kInputBufferSize] = {};
+                snprintf(command, sizeof(command), "%s", buffer);
+                normalize_token(command);
+                if (strcmp(command, "clear") == 0 || strcmp(command, "0") == 0) {
+                    nutrition_update_ingredients_from_names(nullptr, nullptr, 0);
+                    ESP_LOGI(TAG, "serial command cleared scale and finalized current meal");
+                    len = 0;
+                    continue;
+                }
+
                 IngredientState parsed = {};
                 if (parse_ingredient_line(buffer, &parsed)) {
                     lock_state();

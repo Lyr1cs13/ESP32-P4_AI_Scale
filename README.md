@@ -97,6 +97,7 @@ chicken:150,potato:120,carrot:60
 beef:120,tomato:80,onion:30
 fish:200,ginger:10,garlic:8
 tofu:150,cabbage:100
+clear
 ```
 
 规则：
@@ -106,6 +107,7 @@ tofu:150,cabbage:100
 - 多个食材用`,`或`;`分隔。
 - 食材名和重量可用`:`、`=`或空格分隔。
 - 单次最多支持4种食材。
+- 输入`clear`或`0`模拟秤面归零：结束当前已确认餐食并触发上云。
 
 ## 工程结构
 
