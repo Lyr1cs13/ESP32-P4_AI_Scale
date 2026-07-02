@@ -16,7 +16,7 @@ menu "AI Scale Cloud Upload"
 
         config AI_SCALE_CLOUD_RECORD_URL
             string "Meal record API URL"
-            default "http://106.53.198.194:8080/api/v1/weigh-in/record"
+            default "http://106.53.198.194/api/v1/weigh-in/record"
 
         config AI_SCALE_CLOUD_USER_ID
             int "Cloud user ID"

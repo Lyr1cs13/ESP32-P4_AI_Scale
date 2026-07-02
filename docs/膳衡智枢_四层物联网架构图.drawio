@@ -1,0 +1,173 @@
+<mxfile host="app.diagrams.net" modified="2026-06-30T10:00:00.000Z" agent="Codex" version="24.7.17" type="device">
+  <diagram id="nutrition-iot-architecture" name="四层物联网架构">
+    <mxGraphModel dx="1500" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <mxCell id="title" value="膳衡智枢：基于ESP32-P4的端云协同智能营养感知系统" style="text;html=1;align=center;verticalAlign=middle;fontSize=26;fontStyle=1;fontColor=#172033;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry x="180" y="15" width="1270" height="45" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend" value="实线：业务数据流　　虚线：服务调用/依赖　　端侧实时闭环优先，云端负责记录沉淀与长期规划" style="text;html=1;align=center;verticalAlign=middle;fontSize=12;fontColor=#5B6475;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry x="300" y="58" width="1030" height="25" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="appBand" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F4F7FB;strokeColor=#AEB8C8;arcSize=4;" vertex="1" parent="1">
+          <mxGeometry x="155" y="95" width="1340" height="165" as="geometry"/>
+        </mxCell>
+        <mxCell id="appLabel" value="应用层" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#24344D;strokeColor=#24344D;fontColor=#FFFFFF;fontSize=22;fontStyle=1;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="25" y="95" width="115" height="165" as="geometry"/>
+        </mxCell>
+        <mxCell id="appWeb" value="&lt;b&gt;Web用户端&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:12px&quot;&gt;注册登录 · 饮食记录 · 健康档案&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5C78A6;strokeWidth=2;fontColor=#1D2A3A;fontSize=16;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="235" y="135" width="280" height="85" as="geometry"/>
+        </mxCell>
+        <mxCell id="appDashboard" value="&lt;b&gt;营养数据看板&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:12px&quot;&gt;单餐详情 · 趋势统计 · 近30天聚合&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5C78A6;strokeWidth=2;fontColor=#1D2A3A;fontSize=16;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="685" y="135" width="280" height="85" as="geometry"/>
+        </mxCell>
+        <mxCell id="appPlan" value="&lt;b&gt;个性化健康规划&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:12px&quot;&gt;饮食建议 · 推荐食谱 · 长期健康管理&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5C78A6;strokeWidth=2;fontColor=#1D2A3A;fontSize=16;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1135" y="135" width="280" height="85" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="cloudBand" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F7F8F4;strokeColor=#AEB8A2;arcSize=4;" vertex="1" parent="1">
+          <mxGeometry x="155" y="280" width="1340" height="270" as="geometry"/>
+        </mxCell>
+        <mxCell id="cloudLabel" value="云平台层" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3D574A;strokeColor=#3D574A;fontColor=#FFFFFF;fontSize=22;fontStyle=1;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="25" y="280" width="115" height="270" as="geometry"/>
+        </mxCell>
+        <mxCell id="nginx" value="&lt;b&gt;Nginx反向代理&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:12px&quot;&gt;统一入口 · 路由转发&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6E8B76;strokeWidth=2;fontColor=#263C30;fontSize=16;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="205" y="320" width="220" height="75" as="geometry"/>
+        </mxCell>
+        <mxCell id="go" value="&lt;b&gt;Go业务服务（Gin）&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:12px&quot;&gt;RESTful API · JWT鉴权&lt;br&gt;用户/档案/饮食记录管理&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F1EC;strokeColor=#4F7A5E;strokeWidth=2;fontColor=#203729;fontSize=16;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="500" y="310" width="285" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="db" value="&lt;b&gt;PostgreSQL&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:12px&quot;&gt;用户健康档案&lt;br&gt;餐食与完整营养数据&lt;br&gt;规划结果持久化&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;fillColor=#FFFFFF;strokeColor=#4F7A5E;strokeWidth=2;fontColor=#203729;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="535" y="435" width="215" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="rag" value="&lt;b&gt;Python RAG服务（FastAPI）&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:12px&quot;&gt;LlamaIndex检索增强&lt;br&gt;健康画像+近30天饮食上下文&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EEF0E7;strokeColor=#71804E;strokeWidth=2;fontColor=#34401F;fontSize=16;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="855" y="310" width="300" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="kb" value="&lt;b&gt;营养知识库&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:12px&quot;&gt;final.json · a.json&lt;br&gt;食材与菜品向量索引&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;fillColor=#FFFFFF;strokeColor=#71804E;strokeWidth=2;fontColor=#34401F;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="855" y="435" width="210" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="bailian" value="&lt;b&gt;阿里云百炼&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:12px&quot;&gt;向量化 · qwen-turbo生成&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#71804E;strokeWidth=2;fontColor=#34401F;fontSize=15;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1195" y="330" width="240" height="75" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="networkBand" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F7F5FA;strokeColor=#B4AAC2;arcSize=4;" vertex="1" parent="1">
+          <mxGeometry x="155" y="570" width="1340" height="160" as="geometry"/>
+        </mxCell>
+        <mxCell id="networkLabel" value="网络层" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#554665;strokeColor=#554665;fontColor=#FFFFFF;fontSize=22;fontStyle=1;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="25" y="570" width="115" height="160" as="geometry"/>
+        </mxCell>
+        <mxCell id="c6" value="&lt;b&gt;板载ESP32-C6&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:12px&quot;&gt;ESP-Hosted协处理器固件&lt;br&gt;提供2.4 GHz Wi-Fi能力&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EEE9F3;strokeColor=#745C8C;strokeWidth=2;fontColor=#382A46;fontSize=16;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="265" y="610" width="280" height="85" as="geometry"/>
+        </mxCell>
+        <mxCell id="sdio" value="&lt;b&gt;SDIO四线链路&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:12px&quot;&gt;ESP-Hosted RPC&lt;br&gt;esp_wifi_remote&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#8B79A0;strokeWidth=2;fontColor=#382A46;fontSize=15;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="650" y="610" width="250" height="85" as="geometry"/>
+        </mxCell>
+        <mxCell id="internet" value="&lt;b&gt;Wi-Fi / Internet&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:12px&quot;&gt;HTTP+JSON餐食上报&lt;br&gt;REST API业务访问&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#8B79A0;strokeWidth=2;fontColor=#382A46;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="1010" y="608" width="280" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="edgeBand" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FBF7F1;strokeColor=#C4B39B;arcSize=4;" vertex="1" parent="1">
+          <mxGeometry x="155" y="750" width="1340" height="350" as="geometry"/>
+        </mxCell>
+        <mxCell id="edgeLabel" value="感知与&lt;br&gt;控制层" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#6B5035;strokeColor=#6B5035;fontColor=#FFFFFF;fontSize=22;fontStyle=1;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="25" y="750" width="115" height="350" as="geometry"/>
+        </mxCell>
+        <mxCell id="camera" value="&lt;b&gt;MIPI-CSI摄像头&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:12px&quot;&gt;秤面食材图像&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#B17A3E;strokeWidth=2;fontColor=#4A3420;fontSize=15;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="195" y="790" width="210" height="68" as="geometry"/>
+        </mxCell>
+        <mxCell id="weight" value="&lt;b&gt;压力传感器+HX711&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:12px&quot;&gt;实时总重 · 稳定窗口 · 清零检测&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#B17A3E;strokeWidth=2;fontColor=#4A3420;fontSize=15;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="195" y="880" width="210" height="75" as="geometry"/>
+        </mxCell>
+        <mxCell id="touch" value="&lt;b&gt;480×640触控屏&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:12px&quot;&gt;食材/重量 · 烹饪方式 · 营养结果&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#B17A3E;strokeWidth=2;fontColor=#4A3420;fontSize=15;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="195" y="980" width="210" height="75" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="p4" value="&lt;b&gt;ESP32-P4边缘计算主控&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:12px&quot;&gt;双核RISC-V 360 MHz · 32 MB PSRAM · 32 MB Flash&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2E8D9;strokeColor=#8C6335;strokeWidth=3;fontColor=#3D2A18;fontSize=18;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="465" y="785" width="580" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="senseTask" value="&lt;b&gt;感知任务组&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:12px&quot;&gt;称重采集与稳定判断&lt;br&gt;拍照触发 · 图像预处理&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#9A744A;fontColor=#4A3420;fontSize=14;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="490" y="885" width="190" height="88" as="geometry"/>
+        </mxCell>
+        <mxCell id="yolo" value="&lt;b&gt;食材识别AI&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:12px&quot;&gt;ESP-DL YOLO&lt;br&gt;food_yolo.espdl&lt;br&gt;输出：类别+重量&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF4E5;strokeColor=#D18A2E;strokeWidth=2;fontColor=#553817;fontSize=14;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="710" y="875" width="185" height="108" as="geometry"/>
+        </mxCell>
+        <mxCell id="nutri" value="&lt;b&gt;NutriCook营养AI&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:12px&quot;&gt;二进制树表快速映射&lt;br&gt;输入：食材+重量+烹饪方式&lt;br&gt;输出：热量+11项营养结果&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF4E5;strokeColor=#D18A2E;strokeWidth=2;fontColor=#553817;fontSize=14;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="925" y="875" width="235" height="108" as="geometry"/>
+        </mxCell>
+        <mxCell id="rtos" value="&lt;b&gt;FreeRTOS协同调度&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:12px&quot;&gt;Queue传递感知结果 · Task Notify触发处理 · Mutex保护共享状态&lt;br&gt;LVGL独立刷新 · 营养推理异步执行 · 云上传队列失败重试&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8F1E8;strokeColor=#9A744A;strokeWidth=2;fontColor=#4A3420;fontSize=14;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="490" y="1005" width="670" height="68" as="geometry"/>
+        </mxCell>
+        <mxCell id="localRecord" value="&lt;b&gt;本地餐食状态机&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:12px&quot;&gt;确认后可覆盖修改&lt;br&gt;清零结束餐食&lt;br&gt;保存最近5次记录&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#9A744A;strokeWidth=2;fontColor=#4A3420;fontSize=14;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="1205" y="875" width="220" height="108" as="geometry"/>
+        </mxCell>
+        <mxCell id="payload" value="&lt;b&gt;结构化餐食数据&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:12px&quot;&gt;食材列表 · 原始重量 · 烹饪方式&lt;br&gt;成品重量 · 热量 · 完整营养向量&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8F1E8;strokeColor=#9A744A;strokeWidth=2;fontColor=#4A3420;fontSize=14;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="1205" y="1005" width="220" height="68" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="eCam" value="RGB565帧" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#8C6335;strokeWidth=2;endArrow=block;endFill=1;fontSize=11;" edge="1" parent="1" source="camera" target="senseTask">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="eWeight" value="重量/触发" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#8C6335;strokeWidth=2;endArrow=block;endFill=1;fontSize=11;" edge="1" parent="1" source="weight" target="senseTask">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="eSenseYolo" value="稳定后拍照" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#C67D22;strokeWidth=2;endArrow=block;endFill=1;fontSize=11;" edge="1" parent="1" source="senseTask" target="yolo">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="eYoloNutri" value="类别+对应重量" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#C67D22;strokeWidth=2;endArrow=block;endFill=1;fontSize=11;" edge="1" parent="1" source="yolo" target="nutri">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="eTouchNutri" value="烹饪方式" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#8C6335;strokeWidth=2;endArrow=block;endFill=1;fontSize=11;" edge="1" parent="1" source="touch" target="nutri">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="eNutriRecord" value="营养结果" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#C67D22;strokeWidth=2;endArrow=block;endFill=1;fontSize=11;" edge="1" parent="1" source="nutri" target="localRecord">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="eRecordPayload" value="餐食结束" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#8C6335;strokeWidth=2;endArrow=block;endFill=1;fontSize=11;" edge="1" parent="1" source="localRecord" target="payload">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="eP4Sdio" value="网络协议栈" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6C5482;strokeWidth=2;endArrow=block;endFill=1;fontSize=11;" edge="1" parent="1" source="p4" target="sdio">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="eSdioC6" value="SDIO/RPC" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6C5482;strokeWidth=2;startArrow=block;startFill=1;endArrow=block;endFill=1;fontSize=11;" edge="1" parent="1" source="sdio" target="c6">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="eC6Internet" value="Wi-Fi STA" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6C5482;strokeWidth=2;endArrow=block;endFill=1;fontSize=11;" edge="1" parent="1" source="c6" target="internet">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="ePayloadInternet" value="POST /api/v1/weigh-in/record" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6C5482;strokeWidth=2;endArrow=block;endFill=1;fontSize=11;" edge="1" parent="1" source="payload" target="internet">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="eInternetNginx" value="HTTP/JSON" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#4F7A5E;strokeWidth=2;endArrow=block;endFill=1;fontSize=11;" edge="1" parent="1" source="internet" target="nginx">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="eNginxGo" value="API转发" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#4F7A5E;strokeWidth=2;endArrow=block;endFill=1;fontSize=11;" edge="1" parent="1" source="nginx" target="go">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="eGoDb" value="读写" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#4F7A5E;strokeWidth=2;startArrow=block;startFill=1;endArrow=block;endFill=1;fontSize=11;" edge="1" parent="1" source="go" target="db">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="eGoRag" value="生成规划请求" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;dashPattern=6 4;strokeColor=#687744;strokeWidth=2;endArrow=block;endFill=1;fontSize=11;" edge="1" parent="1" source="go" target="rag">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="eRagKb" value="向量检索" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;dashPattern=6 4;strokeColor=#687744;strokeWidth=2;startArrow=block;startFill=1;endArrow=block;endFill=1;fontSize=11;" edge="1" parent="1" source="rag" target="kb">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="eRagBailian" value="检索增强生成" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;dashPattern=6 4;strokeColor=#687744;strokeWidth=2;startArrow=block;startFill=1;endArrow=block;endFill=1;fontSize=11;" edge="1" parent="1" source="rag" target="bailian">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="eWebNginx" value="REST API" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#4C668F;strokeWidth=2;startArrow=block;startFill=1;endArrow=block;endFill=1;fontSize=11;" edge="1" parent="1" source="appWeb" target="nginx">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="eDbDashboard" value="统计结果" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;dashPattern=6 4;strokeColor=#4C668F;strokeWidth=2;endArrow=block;endFill=1;fontSize=11;" edge="1" parent="1" source="db" target="appDashboard">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="eRagPlan" value="规划与食谱" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;dashPattern=6 4;strokeColor=#4C668F;strokeWidth=2;endArrow=block;endFill=1;fontSize=11;" edge="1" parent="1" source="rag" target="appPlan">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
