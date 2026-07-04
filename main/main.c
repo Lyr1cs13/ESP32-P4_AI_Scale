@@ -14,6 +14,7 @@
 #include "esp_timer.h"
 #include "driver/gpio.h"
 #include "esp_err.h"
+#include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "lvgl.h"
 #include "demos/lv_demos.h"
@@ -168,7 +169,14 @@ void i2c_scanner(void)
 static lv_display_t *start_display_and_nutrition_ui(void)
 {
     bsp_display_cfg_t cfg = {
-    .lvgl_port_cfg = ESP_LVGL_PORT_INIT_CONFIG(),
+    .lvgl_port_cfg = {
+        .task_priority = 5,
+        .task_stack = 7168,
+        .task_affinity = 0,
+        .task_max_sleep_ms = 20,
+        .task_stack_caps = MALLOC_CAP_INTERNAL | MALLOC_CAP_DEFAULT,
+        .timer_period_ms = 5,
+    },
     .buffer_size = BSP_LCD_DRAW_BUFF_SIZE,
     .double_buffer = BSP_LCD_DRAW_BUFF_DOUBLE,
     .flags = {

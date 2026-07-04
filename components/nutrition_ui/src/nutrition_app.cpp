@@ -1023,7 +1023,7 @@ extern "C" void nutrition_lvgl_ui(lv_display_t *disp)
     create_page_dots(scr);
     show_page(Page::Scale);
 
-    lv_timer_create(ui_timer_cb, 250, nullptr);
+    lv_timer_create(ui_timer_cb, 50, nullptr);
     xTaskCreate(serial_input_task, "nutrition_serial", 4096, nullptr, 4, nullptr);
 }
 

@@ -266,6 +266,7 @@ void ai_scale_perception_mark_inference_idle(void)
 static void weight_capture_trigger_task(void *arg)
 {
     (void)arg;
+    float zero_bias_g = 0.0f;
     float reference_weight_g = 0.0f;
     float candidate_weight_g = 0.0f;
     int stable_count = 0;
@@ -278,15 +279,17 @@ static void weight_capture_trigger_task(void *arg)
     hx711_tare();
     vTaskDelay(pdMS_TO_TICKS(300));
 
-    reference_weight_g = normalize_scale_weight(hx711_get_units(PERCEPTION_HX711_AVG_SAMPLES));
-    candidate_weight_g = reference_weight_g;
+    zero_bias_g = hx711_get_units(PERCEPTION_HX711_AVG_SAMPLES);
+    reference_weight_g = 0.0f;
+    candidate_weight_g = 0.0f;
     stable_count = PERCEPTION_WEIGHT_STABLE_COUNT;
 
-    ESP_LOGI(TAG, "HX711 ready DOUT=%d SCK=%d, reference %.1f g",
-             PERCEPTION_HX711_DATA_GPIO, PERCEPTION_HX711_SCK_GPIO, reference_weight_g);
+    ESP_LOGI(TAG, "HX711 ready DOUT=%d SCK=%d, residual bias %.1f g, reference 0.0 g",
+             PERCEPTION_HX711_DATA_GPIO, PERCEPTION_HX711_SCK_GPIO, zero_bias_g);
 
     while (true) {
-        const float current_weight_g = normalize_scale_weight(hx711_get_units(PERCEPTION_HX711_AVG_SAMPLES));
+        const float corrected_weight_g = hx711_get_units(PERCEPTION_HX711_AVG_SAMPLES) - zero_bias_g;
+        const float current_weight_g = normalize_scale_weight(corrected_weight_g > 0.0f ? corrected_weight_g : 0.0f);
         const float candidate_delta_g = absf_local(current_weight_g - candidate_weight_g);
         const float reference_delta_g = absf_local(current_weight_g - reference_weight_g);
 
@@ -378,12 +381,13 @@ esp_err_t ai_scale_perception_camera_start_pipeline(void)
     }
 
     if (!s_weight_task_started) {
-        BaseType_t ok = xTaskCreate(weight_capture_trigger_task,
-                                    "weight_sensor",
-                                    4096,
-                                    NULL,
-                                    3,
-                                    NULL);
+        BaseType_t ok = xTaskCreatePinnedToCore(weight_capture_trigger_task,
+                                                "weight_sensor",
+                                                4096,
+                                                NULL,
+                                                4,
+                                                NULL,
+                                                0);
         ESP_RETURN_ON_FALSE(ok == pdPASS, ESP_ERR_NO_MEM, TAG, "create weight task failed");
         s_weight_task_started = true;
     }
