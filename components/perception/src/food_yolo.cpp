@@ -187,76 +187,66 @@ static void clear_results_locked()
     }
 }
 
-static void reconcile_totals_to_scale_locked(float total_weight_g)
+static void remove_item_locked(int index)
 {
-    if (total_weight_g <= ZERO_WEIGHT_G) {
-        clear_results_locked();
+    food_item_record_t &item = s_item_buffer[index];
+    const int category = item.category;
+    if (category < 0 || category >= NUM_CLASSES || item.item_weight_g <= 0.0f) {
         return;
     }
 
-    const float sum = class_total_sum_locked();
-    if (sum <= 0.0f) {
-        return;
+    ESP_LOGI(TAG, "remove complete item: %s %.2f g", item.class_name, item.item_weight_g);
+    s_class_totals[category].total_weight_g -= item.item_weight_g;
+    if (s_class_totals[category].count > 0) {
+        --s_class_totals[category].count;
+    }
+    if (s_class_totals[category].count == 0 || s_class_totals[category].total_weight_g <= 0.5f) {
+        s_class_totals[category].count = 0;
+        s_class_totals[category].total_weight_g = 0.0f;
     }
 
-    const float scale = total_weight_g / sum;
-    for (int i = 0; i < NUM_CLASSES; ++i) {
-        if (s_class_totals[i].total_weight_g > 0.0f) {
-            s_class_totals[i].total_weight_g *= scale;
-            if (s_class_totals[i].total_weight_g < 0.5f) {
-                s_class_totals[i].total_weight_g = 0.0f;
-                s_class_totals[i].count = 0;
-            }
-        }
-    }
+    item.category = -1;
+    item.item_weight_g = 0.0f;
 }
 
-static void subtract_weight_locked(float weight_g)
+static void remove_matching_items_locked(float removed_weight_g)
 {
-    float remaining = weight_g;
-    if (remaining <= 0.0f) {
+    constexpr int MAX_MATCH_ITEMS = 16;
+    int active_indices[MAX_MATCH_ITEMS] = {};
+    int active_count = 0;
+
+    for (int step = 1; step <= s_item_count && active_count < MAX_MATCH_ITEMS; ++step) {
+        const int index = (s_item_write_index - step + FOOD_ITEM_BUFFER_LEN) % FOOD_ITEM_BUFFER_LEN;
+        const food_item_record_t &item = s_item_buffer[index];
+        if (item.category >= 0 && item.category < NUM_CLASSES && item.item_weight_g > 0.0f) {
+            active_indices[active_count++] = index;
+        }
+    }
+    if (active_count == 0 || removed_weight_g <= 0.0f) {
         return;
     }
 
-    for (int step = 1; step <= s_item_count && remaining > 0.0f; ++step) {
-        const int index = (s_item_write_index - step + FOOD_ITEM_BUFFER_LEN) % FOOD_ITEM_BUFFER_LEN;
-        const int category = s_item_buffer[index].category;
-        if (category < 0 || category >= NUM_CLASSES || s_class_totals[category].total_weight_g <= 0.0f) {
-            continue;
+    uint32_t best_mask = 0;
+    float best_error = removed_weight_g;
+    const uint32_t subset_count = 1U << active_count;
+    for (uint32_t mask = 1; mask < subset_count; ++mask) {
+        float sum = 0.0f;
+        for (int i = 0; i < active_count; ++i) {
+            if ((mask & (1U << i)) != 0) {
+                sum += s_item_buffer[active_indices[i]].item_weight_g;
+            }
         }
-
-        const float take = std::min(remaining, s_class_totals[category].total_weight_g);
-        s_class_totals[category].total_weight_g -= take;
-        remaining -= take;
-        if (s_class_totals[category].total_weight_g <= 0.5f) {
-            s_class_totals[category].total_weight_g = 0.0f;
-            s_class_totals[category].count = 0;
+        const float error = sum > removed_weight_g ? sum - removed_weight_g : removed_weight_g - sum;
+        if (best_mask == 0 || error < best_error) {
+            best_mask = mask;
+            best_error = error;
         }
     }
 
-    float sum = class_total_sum_locked();
-    while (remaining > 0.0f && sum > 0.0f) {
-        bool changed = false;
-        for (int i = 0; i < NUM_CLASSES && remaining > 0.0f; ++i) {
-            if (s_class_totals[i].total_weight_g <= 0.0f) {
-                continue;
-            }
-            const float proportional_share = weight_g * s_class_totals[i].total_weight_g / sum;
-            const float share = std::min(remaining, std::min(s_class_totals[i].total_weight_g, proportional_share));
-            if (share > 0.0f) {
-                s_class_totals[i].total_weight_g -= share;
-                remaining -= share;
-                changed = true;
-            }
-            if (s_class_totals[i].total_weight_g <= 0.5f) {
-                s_class_totals[i].total_weight_g = 0.0f;
-                s_class_totals[i].count = 0;
-            }
+    for (int i = 0; i < active_count; ++i) {
+        if ((best_mask & (1U << i)) != 0) {
+            remove_item_locked(active_indices[i]);
         }
-        if (!changed) {
-            break;
-        }
-        sum = class_total_sum_locked();
     }
 }
 
@@ -289,8 +279,6 @@ static void store_food_item(const inference_request_t &request, const detection_
             s_class_totals[best.category].total_weight_g += request.item_weight_g;
         }
     }
-    reconcile_totals_to_scale_locked(request.total_weight_g);
-
     xSemaphoreGive(s_result_lock);
 }
 
@@ -517,9 +505,8 @@ extern "C" void food_result_apply_weight_delta(float total_weight_g, float delta
     }
 
     if (delta_weight_g < 0.0f) {
-        subtract_weight_locked(-delta_weight_g);
+        remove_matching_items_locked(-delta_weight_g);
     }
-    reconcile_totals_to_scale_locked(total_weight_g);
 
     ESP_LOGI(TAG,
              "current food snapshot adjusted by %.2f g, scale total %.2f g, tracked total %.2f g",

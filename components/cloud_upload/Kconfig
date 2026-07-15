@@ -8,11 +8,11 @@ menu "AI Scale Cloud Upload"
 
         config AI_SCALE_CLOUD_WIFI_SSID
             string "Wi-Fi SSID"
-            default ""
+            default "LYY"
 
         config AI_SCALE_CLOUD_WIFI_PASSWORD
             string "Wi-Fi password"
-            default ""
+            default "wccc9556"
 
         config AI_SCALE_CLOUD_RECORD_URL
             string "Meal record API URL"
